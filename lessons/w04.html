@@ -1,0 +1,1107 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Week 4 lessons</title></head><body>
+
+<!-- ===================================================== L1 ===================================================== -->
+<section class="lesson" id="w04-l1">
+<p>You've used Selenium with Python and Robot Framework, so you know the basics. Interviewers for higher-paying roles go further: how WebDriver works underneath, why tests become flaky, and how a framework is designed. This week takes you to that level, and you finish with a framework you can show.</p>
+
+<h2>Practice sites used this week</h2>
+<ul>
+  <li><b>Sauce Demo</b> (<code>https://www.saucedemo.com</code>): a small shop with login, products, cart and checkout. The test users and the password are printed on its login page.</li>
+  <li><b>The Internet</b> (<code>https://the-internet.herokuapp.com</code>): one page per tricky situation: waits, alerts, frames, windows, uploads, tables.</li>
+</ul>
+<pre class="code">pip install selenium pytest</pre>
+<p>Selenium 4.6 and later include <b>Selenium Manager</b>, which finds or downloads the right driver for your browser automatically. You no longer download chromedriver by hand or use <code>webdriver-manager</code>.</p>
+
+<h2>How Selenium WebDriver works</h2>
+<pre class="code">your test (Python)
+   │  driver.find_element(By.ID, "login-button").click()
+   ▼
+Selenium client library (language bindings)
+   │  HTTP request with JSON, following the W3C WebDriver standard
+   ▼
+browser driver (chromedriver / msedgedriver / geckodriver)
+   │  native browser automation
+   ▼
+the browser (Chrome / Edge / Firefox)</pre>
+<p>Every command is an HTTP call to the driver, which controls the browser and returns a response. That's why each step takes milliseconds, and why the browser and your test can get out of step: the root cause of most flaky tests.</p>
+
+<div class="callout interview"><b>Interview: Selenium 3 vs Selenium 4</b>
+<p>Selenium 4 uses the W3C WebDriver standard directly (the old JSON Wire Protocol is gone), so behaviour is more consistent across browsers. It adds Selenium Manager for drivers, relative locators, <code>new_window()</code> for tabs and windows, element screenshots, Chrome DevTools / WebDriver BiDi access (network, console logs), and a redesigned Grid that can run as standalone, hub-and-node, or fully distributed, with Docker support.</p>
+</div>
+
+<h2>Your first script</h2>
+<pre class="code">from selenium import webdriver
+from selenium.webdriver.common.by import By
+
+driver = webdriver.Chrome()
+try:
+    driver.get("https://www.saucedemo.com/")
+    driver.find_element(By.ID, "user-name").send_keys("standard_user")
+    driver.find_element(By.ID, "password").send_keys("secret_sauce")
+    driver.find_element(By.ID, "login-button").click()
+
+    assert driver.current_url.endswith("/inventory.html")
+    assert driver.find_element(By.CLASS_NAME, "title").text == "Products"
+finally:
+    driver.quit()          # always quit, even when an assert fails</pre>
+
+<h2>The core API</h2>
+<div class="tablewrap"><table class="ref">
+<tr><th>Task</th><th>Python</th></tr>
+<tr><td>Open a URL</td><td><code>driver.get(url)</code></td></tr>
+<tr><td>Page info</td><td><code>driver.title</code>, <code>driver.current_url</code>, <code>driver.page_source</code></td></tr>
+<tr><td>Navigate</td><td><code>driver.back()</code>, <code>forward()</code>, <code>refresh()</code></td></tr>
+<tr><td>Find one / many</td><td><code>find_element(By.X, "v")</code> / <code>find_elements(By.X, "v")</code></td></tr>
+<tr><td>Act</td><td><code>el.click()</code>, <code>el.send_keys("t")</code>, <code>el.clear()</code>, <code>el.submit()</code></td></tr>
+<tr><td>Read</td><td><code>el.text</code>, <code>el.get_attribute("value")</code>, <code>el.get_dom_attribute("href")</code>, <code>el.value_of_css_property("color")</code></td></tr>
+<tr><td>State</td><td><code>el.is_displayed()</code>, <code>is_enabled()</code>, <code>is_selected()</code></td></tr>
+<tr><td>Window</td><td><code>driver.maximize_window()</code>, <code>set_window_size(1366, 768)</code></td></tr>
+<tr><td>End</td><td><code>driver.close()</code> closes the current window; <code>driver.quit()</code> ends the whole session</td></tr>
+</table></div>
+
+<h3>Browser options</h3>
+<pre class="code">from selenium.webdriver.chrome.options import Options
+
+options = Options()
+options.add_argument("--headless=new")        # no visible window: CI servers
+options.add_argument("--window-size=1366,768")
+options.add_argument("--incognito")
+driver = webdriver.Chrome(options=options)
+
+# Edge and Firefox follow the same pattern:
+# webdriver.Edge(options=webdriver.EdgeOptions())
+# webdriver.Firefox(options=webdriver.FirefoxOptions())</pre>
+<div class="callout warn"><b>Headless gotcha</b>Headless browsers often start with a small default window, so responsive layouts hide elements and tests fail only in CI. Always set a window size in headless mode.</div>
+
+<h3>find_element vs find_elements</h3>
+<p><code>find_element</code> raises <code>NoSuchElementException</code> when nothing matches. <code>find_elements</code> returns an empty list and never raises. Use that to check that something is <i>absent</i>:</p>
+<pre class="code">badges = driver.find_elements(By.CLASS_NAME, "shopping_cart_badge")
+assert badges == []          # cart is empty: the badge isn't rendered at all</pre>
+
+<div class="callout interview"><b>Interview questions</b>
+<p><b>Explain Selenium WebDriver architecture.</b> Client bindings send W3C WebDriver commands over HTTP to a browser-specific driver, which controls the browser natively and returns the result.</p>
+<p><b>close() vs quit()?</b> close shuts the current window; quit ends the session, closes all windows and stops the driver process. Use quit in teardown.</p>
+<p><b>What can't Selenium do?</b> Desktop apps, CAPTCHAs and OTPs (by design), image or visual comparison on its own, and native mobile apps (that's Appium). It also has no built-in reporting or test runner; you add pytest or TestNG.</p>
+<p><b>get() vs navigate().to()?</b> In Java, navigate() keeps browser history for back and forward; get() is the usual way to open a page. In Python, <code>driver.get()</code> is the only one.</p>
+</div>
+
+<h2>Exercises</h2>
+<div class="ex" data-id="w04-l1-e1"><p class="q">Log in to Sauce Demo as <code>locked_out_user</code> and assert the exact error message: <code>Epic sadface: Sorry, this user has been locked out.</code></p>
+<details class="ans"><summary>Show answer</summary><pre class="code">from selenium import webdriver
+from selenium.webdriver.common.by import By
+
+driver = webdriver.Chrome()
+try:
+    driver.get("https://www.saucedemo.com/")
+    driver.find_element(By.ID, "user-name").send_keys("locked_out_user")
+    driver.find_element(By.ID, "password").send_keys("secret_sauce")
+    driver.find_element(By.ID, "login-button").click()
+    error = driver.find_element(By.CSS_SELECTOR, "[data-test='error']").text
+    assert error == "Epic sadface: Sorry, this user has been locked out.", error
+finally:
+    driver.quit()</pre><p>Putting <code>error</code> after the comma prints the actual text if the assert fails. It's a small habit that saves a lot of debugging.</p></details></div>
+
+<div class="ex" data-id="w04-l1-e2"><p class="q">After logging in as <code>standard_user</code>, print every product name and price, and assert there are 6 products.</p>
+<details class="ans"><summary>Show answer</summary><pre class="code">names  = [e.text for e in driver.find_elements(By.CLASS_NAME, "inventory_item_name")]
+prices = [e.text for e in driver.find_elements(By.CLASS_NAME, "inventory_item_price")]
+for n, p in zip(names, prices):
+    print(f"{n:40} {p}")
+assert len(names) == 6</pre></details></div>
+
+<div class="ex" data-id="w04-l1-e3"><p class="q">Run the Exercise 1 script headless at 1366×768, in Edge instead of Chrome.</p>
+<details class="ans"><summary>Show answer</summary><pre class="code">options = webdriver.EdgeOptions()
+options.add_argument("--headless=new")
+options.add_argument("--window-size=1366,768")
+driver = webdriver.Edge(options=options)</pre></details></div>
+
+<div class="ex" data-id="w04-l1-e4"><p class="q">On the login page, with an empty username, click Login. Assert that the error shows <code>Epic sadface: Username is required</code>, then click the error's close button (CSS <code>.error-button</code>) and assert the error is gone, using <code>find_elements</code>.</p>
+<details class="ans"><summary>Show answer</summary><pre class="code">driver.get("https://www.saucedemo.com/")
+driver.find_element(By.ID, "login-button").click()
+assert driver.find_element(By.CSS_SELECTOR, "[data-test='error']").text == "Epic sadface: Username is required"
+driver.find_element(By.CSS_SELECTOR, ".error-button").click()
+assert driver.find_elements(By.CSS_SELECTOR, "[data-test='error']") == []</pre></details></div>
+</section>
+
+<!-- ===================================================== L2 ===================================================== -->
+<section class="lesson" id="w04-l2">
+<p>Most flaky and high-maintenance UI tests come down to poor locators. A good locator is <b>unique</b>, <b>stable</b> when the layout changes, and <b>readable</b>. This lesson gives you a priority order, cheat sheets for CSS and XPath, and techniques for dynamic pages.</p>
+
+<h2>Locator priority</h2>
+<ol>
+  <li><b>A test attribute</b> such as <code>data-test</code>, <code>data-testid</code> or <code>data-qa</code>, added for automation. Sauce Demo has these. In your project, ask developers to add them; it's a common, reasonable request.</li>
+  <li><b>id</b>, if it's stable. Avoid generated ones like <code>input-38f2a</code>.</li>
+  <li><b>name</b> for form fields.</li>
+  <li><b>CSS selector</b> built on stable attributes.</li>
+  <li><b>Relative XPath</b>, when you need text matching or to move up the tree.</li>
+  <li><b>Never</b> absolute XPath (<code>/html/body/div[2]/div/form/input[1]</code>) or positions that change when the layout changes.</li>
+</ol>
+<p>The eight <code>By</code> strategies: <code>ID</code>, <code>NAME</code>, <code>CLASS_NAME</code>, <code>TAG_NAME</code>, <code>LINK_TEXT</code>, <code>PARTIAL_LINK_TEXT</code>, <code>CSS_SELECTOR</code>, <code>XPATH</code>.</p>
+
+<h2>Check locators in DevTools first</h2>
+<p>Press F12, open the <b>Console</b> tab and try your locator before writing code:</p>
+<pre class="code">$$("[data-test='login-button']")     // CSS: returns the matching elements
+$x("//input[@id='user-name']")       // XPath</pre>
+<p>Exactly one match is what you want. Zero means the locator is wrong; several means it's too loose.</p>
+
+<h2>CSS selector cheat sheet</h2>
+<div class="tablewrap"><table class="ref">
+<tr><th>Pattern</th><th>Meaning</th><th>Example</th></tr>
+<tr><td><code>#id</code></td><td>by id</td><td><code>#user-name</code></td></tr>
+<tr><td><code>.class</code></td><td>by class</td><td><code>.inventory_item_price</code></td></tr>
+<tr><td><code>[attr='v']</code></td><td>attribute equals</td><td><code>[data-test='login-button']</code></td></tr>
+<tr><td><code>[attr^='v']</code> / <code>$=</code> / <code>*=</code></td><td>starts / ends / contains</td><td><code>[data-test^='add-to-cart']</code></td></tr>
+<tr><td><code>a b</code> / <code>a &gt; b</code></td><td>descendant / direct child</td><td><code>#checkboxes &gt; input</code></td></tr>
+<tr><td><code>a + b</code> / <code>a ~ b</code></td><td>next sibling / any later sibling</td><td><code>label + input</code></td></tr>
+<tr><td><code>:nth-child(n)</code>, <code>:not(x)</code></td><td>position / exclusion</td><td><code>tr:nth-child(2)</code></td></tr>
+</table></div>
+<p>CSS is usually faster and shorter, but it <b>can't match on text</b> and <b>can't move up</b> to a parent. XPath can do both.</p>
+
+<h2>XPath cheat sheet</h2>
+<div class="tablewrap"><table class="ref">
+<tr><th>Pattern</th><th>Example</th></tr>
+<tr><td>Attribute</td><td><code>//input[@id='user-name']</code></td></tr>
+<tr><td>Exact text</td><td><code>//button[text()='Remove']</code></td></tr>
+<tr><td>Text with extra spaces</td><td><code>//h4[normalize-space()='Hello World!']</code></td></tr>
+<tr><td>Partial</td><td><code>//*[contains(@class,'error')]</code>, <code>//a[starts-with(@href,'/windows')]</code></td></tr>
+<tr><td>And / or</td><td><code>//input[@type='text' and @name='q']</code></td></tr>
+<tr><td>Parent / ancestor</td><td><code>//td[text()='Doe']/parent::tr</code>, <code>ancestor::table</code></td></tr>
+<tr><td>Siblings</td><td><code>following-sibling::td[1]</code>, <code>preceding-sibling::td</code></td></tr>
+<tr><td>First match overall</td><td><code>(//div[@class='figure'])[1]</code></td></tr>
+</table></div>
+<div class="callout warn"><b>Common XPath mistake</b><code>//div[@class='inventory_item_name']</code> fails if the element's class attribute holds several classes, or has a trailing space. Use <code>contains(@class,'inventory_item_name')</code>, or the CSS <code>.inventory_item_name</code>, which matches one class among many.</div>
+
+<h2>Dynamic elements: anchor and traverse</h2>
+<p>When an element has no stable attribute, find a <b>stable neighbour</b> (usually visible text) and move from there. On The Internet's <code>/tables</code> page, the amount due for Jason Doe:</p>
+<pre class="code" data-verify="w04-l2">from selenium import webdriver
+from selenium.webdriver.common.by import By
+
+driver = webdriver.Chrome()
+try:
+    driver.get("https://the-internet.herokuapp.com/tables")
+    due = driver.find_element(
+        By.XPATH,
+        "//table[@id='table1']//td[text()='Jason']/following-sibling::td[2]",
+    ).text
+    assert due == "$100.00", due
+finally:
+    driver.quit()</pre>
+<p>It reads as "in table 1, find the cell 'Jason', then the second cell after it". The row order can change and this still works.</p>
+
+<h2>Relative locators (Selenium 4)</h2>
+<pre class="code">from selenium.webdriver.support.relative_locator import locate_with
+
+password = driver.find_element(locate_with(By.TAG_NAME, "input").below({By.ID: "user-name"}))</pre>
+<p>Also <code>above</code>, <code>to_left_of</code>, <code>to_right_of</code> and <code>near</code>. They're handy for forms without good attributes, but they depend on layout, so use them sparingly.</p>
+
+<div class="callout interview"><b>Interview questions</b>
+<p><b>CSS vs XPath?</b> CSS is generally faster, shorter and consistent across browsers. XPath can match text and move to parents and ancestors. Prefer CSS; use XPath when you need text or upward traversal.</p>
+<p><b>How do you handle dynamic IDs?</b> Use a stable part with <code>starts-with</code>/<code>contains</code> (or CSS <code>^=</code>/<code>*=</code>), anchor on nearby stable text and traverse, or ask developers for a <code>data-testid</code>.</p>
+<p><b>Absolute vs relative XPath?</b> Absolute starts at <code>/html</code> and breaks on any layout change; relative starts with <code>//</code> and targets attributes or text.</p>
+</div>
+
+<h2>Exercises</h2>
+<p>Check each answer in DevTools on the live page before you use it in code.</p>
+<div class="ex" data-id="w04-l2-e1"><p class="q">On <code>/javascript_alerts</code>, write CSS selectors for the three buttons, using their <code>onclick</code> attributes.</p>
+<details class="ans"><summary>Show answer</summary><pre class="code">button[onclick='jsAlert()']
+button[onclick='jsConfirm()']
+button[onclick='jsPrompt()']</pre></details></div>
+
+<div class="ex" data-id="w04-l2-e2"><p class="q">On <code>/tables</code>, write an XPath for the email address of the person whose last name is <b>Conway</b>, in table 1.</p>
+<details class="ans"><summary>Show answer</summary><pre class="code">//table[@id='table1']//td[text()='Conway']/following-sibling::td[2]</pre><p>Columns are Last Name, First Name, Email…, so Email is the 2nd sibling after Last Name. Result: <code>tconway@earthlink.net</code>.</p></details></div>
+
+<div class="ex" data-id="w04-l2-e3"><p class="q">Rewrite this brittle locator for Sauce Demo's username box: <code>/html/body/div/div/div[2]/div[1]/div/div/form/div[1]/input</code>.</p>
+<details class="ans"><summary>Show answer</summary><pre class="code">#user-name
+[data-test='username']</pre><p>Either is fine. The <code>data-test</code> version tells the next reader it's a locator meant for automation.</p></details></div>
+
+<div class="ex" data-id="w04-l2-e4"><p class="q">On Sauce Demo's inventory page, write CSS for: (a) the Add to cart button for the Bike Light, (b) every Add to cart button, (c) the cart badge.</p>
+<details class="ans"><summary>Show answer</summary><pre class="code">[data-test='add-to-cart-sauce-labs-bike-light']
+[data-test^='add-to-cart']
+.shopping_cart_badge</pre></details></div>
+
+<div class="ex" data-id="w04-l2-e5"><p class="q">On <code>/checkboxes</code>, use <code>find_elements</code> to count the checkboxes and print which ones are ticked.</p>
+<details class="ans"><summary>Show answer</summary><pre class="code" data-verify="w04-l2">from selenium import webdriver
+from selenium.webdriver.common.by import By
+
+driver = webdriver.Chrome()
+try:
+    driver.get("https://the-internet.herokuapp.com/checkboxes")
+    boxes = driver.find_elements(By.CSS_SELECTOR, "#checkboxes input[type='checkbox']")
+    states = [b.is_selected() for b in boxes]
+    print(states)
+    assert len(boxes) == 2 and states == [False, True]
+finally:
+    driver.quit()</pre></details></div>
+</section>
+
+<!-- ===================================================== L3 ===================================================== -->
+<section class="lesson" id="w04-l3">
+<p>Most flaky Selenium tests are timing problems: the test acts before the page is ready. This lesson is the most important one this week, and the one interviewers press hardest on.</p>
+
+<h2>Three kinds of wait</h2>
+<div class="tablewrap"><table class="ref">
+<tr><th></th><th>Implicit</th><th>Explicit</th><th>Fluent</th></tr>
+<tr><td>Set with</td><td><code>driver.implicitly_wait(10)</code></td><td><code>WebDriverWait(driver, 10).until(cond)</code></td><td><code>WebDriverWait</code> with <code>poll_frequency</code> and <code>ignored_exceptions</code></td></tr>
+<tr><td>Applies to</td><td>every <code>find_element</code> for the whole session</td><td>one specific condition</td><td>one specific condition</td></tr>
+<tr><td>Waits for</td><td>the element to <i>exist</i> in the DOM</td><td>any condition: visible, clickable, text, URL…</td><td>same, with your own polling and ignore rules</td></tr>
+<tr><td>Use it?</td><td>avoid in frameworks</td><td><b>yes, the default</b></td><td>when you need custom polling</td></tr>
+</table></div>
+<div class="callout warn"><b>Never mix implicit and explicit waits</b>The Selenium documentation warns against it: the two interact, and total wait times become unpredictable. A 10s implicit wait plus a 15s explicit wait can take far longer than either. Pick explicit waits and set implicit to 0 (the default).</div>
+<div class="callout warn"><b>time.sleep() is not a wait</b><code>sleep(5)</code> always costs 5 seconds, and it still fails when the page needs 6. A suite full of sleeps is slow and flaky at the same time.</div>
+
+<h2>Explicit waits in practice</h2>
+<pre class="code">from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+
+wait = WebDriverWait(driver, 10)
+button = wait.until(EC.element_to_be_clickable((By.ID, "checkout")))
+button.click()</pre>
+<p><code>until</code> checks the condition every 0.5s. It returns as soon as the condition holds (usually with the element), or raises <code>TimeoutException</code> after 10s.</p>
+<div class="tablewrap"><table class="ref">
+<tr><th>Condition</th><th>Use when</th></tr>
+<tr><td><code>presence_of_element_located</code></td><td>the element must exist (it may be hidden)</td></tr>
+<tr><td><code>visibility_of_element_located</code></td><td>you'll read it or assert on it</td></tr>
+<tr><td><code>element_to_be_clickable</code></td><td>you'll click it</td></tr>
+<tr><td><code>invisibility_of_element_located</code></td><td>waiting for a spinner or overlay to go away</td></tr>
+<tr><td><code>text_to_be_present_in_element</code></td><td>a status label changes text</td></tr>
+<tr><td><code>url_contains</code> / <code>title_is</code></td><td>after navigation</td></tr>
+<tr><td><code>alert_is_present</code></td><td>a JavaScript alert is expected</td></tr>
+<tr><td><code>frame_to_be_available_and_switch_to_it</code></td><td>an iframe loads late</td></tr>
+<tr><td><code>number_of_windows_to_be</code></td><td>a link opens a new tab</td></tr>
+<tr><td><code>staleness_of</code></td><td>waiting for an old element to be replaced (page refresh)</td></tr>
+</table></div>
+
+<h3>Presence is not visibility: a live demonstration</h3>
+<p>On <code>/dynamic_loading/1</code>, the "Hello World!" element is <b>in the page from the start, but hidden</b>. A presence wait succeeds immediately, before the text is visible:</p>
+<pre class="code" data-verify="w04-l3">from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+
+driver = webdriver.Chrome()
+try:
+    driver.get("https://the-internet.herokuapp.com/dynamic_loading/1")
+    driver.find_element(By.CSS_SELECTOR, "#start button").click()
+
+    present = WebDriverWait(driver, 10).until(EC.presence_of_element_located((By.ID, "finish")))
+    print("presence:", repr(present.text))        # '' : hidden elements have no visible text
+
+    shown = WebDriverWait(driver, 10).until(EC.visibility_of_element_located((By.ID, "finish")))
+    print("visibility:", repr(shown.text))        # 'Hello World!'
+    assert shown.text == "Hello World!"
+finally:
+    driver.quit()</pre>
+<p>Waiting for the wrong condition is a classic cause of tests that pass on a fast laptop and fail in CI.</p>
+
+<h2>Fluent wait and custom conditions</h2>
+<pre class="code">from selenium.common.exceptions import NoSuchElementException, StaleElementReferenceException
+
+wait = WebDriverWait(
+    driver, timeout=15, poll_frequency=0.25,
+    ignored_exceptions=[NoSuchElementException, StaleElementReferenceException],
+)
+
+# a condition is just a function that takes the driver and returns something truthy
+rows = wait.until(lambda d: d.find_elements(By.CSS_SELECTOR, ".result-row") if len(d.find_elements(By.CSS_SELECTOR, ".result-row")) &gt;= 3 else False)
+
+# or a readable named function
+def cart_count_is(n):
+    def _check(d):
+        badges = d.find_elements(By.CLASS_NAME, "shopping_cart_badge")
+        return (int(badges[0].text) if badges else 0) == n
+    return _check
+
+wait.until(cart_count_is(2))</pre>
+
+<h2>Exceptions: cause and fix</h2>
+<div class="tablewrap"><table class="ref">
+<tr><th>Exception</th><th>Usual cause</th><th>Fix</th></tr>
+<tr><td><code>NoSuchElementException</code></td><td>wrong locator; element not loaded yet; it's inside an iframe</td><td>check in DevTools; explicit wait; switch to the frame</td></tr>
+<tr><td><code>TimeoutException</code></td><td>the wait condition never became true</td><td>wrong condition (presence vs visibility) or a real bug; read the screenshot</td></tr>
+<tr><td><code>StaleElementReferenceException</code></td><td>the page re-rendered after you found the element (React/Angular, refresh, AJAX)</td><td>find it again just before using it; don't store elements for long; wait for <code>staleness_of</code></td></tr>
+<tr><td><code>ElementClickInterceptedException</code></td><td>something covers it: spinner, cookie banner, sticky header, animation</td><td>wait for the overlay to be invisible; scroll it into view; close the banner. A JS click is a last resort, because it skips what a real user would hit.</td></tr>
+<tr><td><code>ElementNotInteractableException</code></td><td>element is hidden, disabled or zero-sized</td><td>wait for visible or clickable; interact with the visible control instead</td></tr>
+<tr><td><code>NoSuchFrameException</code> / <code>NoSuchWindowException</code></td><td>wrong frame or window handle, or it closed</td><td>wait for the frame; re-read <code>window_handles</code></td></tr>
+<tr><td><code>NoAlertPresentException</code></td><td>the alert hasn't appeared yet</td><td><code>EC.alert_is_present()</code></td></tr>
+</table></div>
+
+<div class="callout interview"><b>Interview questions</b>
+<p><b>Implicit vs explicit vs fluent wait?</b> Use the table above, then say "I use explicit waits inside BasePage helpers and keep implicit at zero, because mixing them makes timings unpredictable".</p>
+<p><b>How do you handle StaleElementReferenceException?</b> Explain the cause (the DOM node was replaced), then the fix: locate again just before acting; helpers take locators, not elements; a wait that ignores stale exceptions while the page re-renders.</p>
+<p><b>Your test passes locally and fails in CI. How do you debug it?</b> Read the failure screenshot and logs; look for timing (headless is faster or slower), window size, test data shared between parallel runs, and environment differences. Fix the cause; don't add sleeps or retries.</p>
+</div>
+
+<h2>Exercises</h2>
+<div class="ex" data-id="w04-l3-e1"><p class="q">On <code>/dynamic_loading/2</code> (the element is <i>added</i> after loading, not just shown), click Start and assert the text "Hello World!". Which wait condition works here, and would presence work too?</p>
+<details class="ans"><summary>Show answer</summary><pre class="code" data-verify="w04-l3">from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+
+driver = webdriver.Chrome()
+try:
+    driver.get("https://the-internet.herokuapp.com/dynamic_loading/2")
+    driver.find_element(By.CSS_SELECTOR, "#start button").click()
+    finish = WebDriverWait(driver, 10).until(EC.visibility_of_element_located((By.ID, "finish")))
+    assert finish.text == "Hello World!"
+finally:
+    driver.quit()</pre><p>Here presence would also work, because the element doesn't exist until it's ready. Visibility works on <b>both</b> pages, which is why it's the safer default before reading text.</p></details></div>
+
+<div class="ex" data-id="w04-l3-e2"><p class="q">On <code>/dynamic_controls</code>: click <b>Remove</b>, wait until the checkbox is gone, and assert the message "It's gone!". Then click <b>Enable</b>, wait until the text box can be used, type into it, and assert "It's enabled!".</p>
+<details class="ans"><summary>Show answer</summary><pre class="code" data-verify="w04-l3">from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+
+driver = webdriver.Chrome()
+wait = WebDriverWait(driver, 10)
+try:
+    driver.get("https://the-internet.herokuapp.com/dynamic_controls")
+
+    driver.find_element(By.CSS_SELECTOR, "#checkbox-example button").click()
+    wait.until(EC.invisibility_of_element_located((By.ID, "checkbox")))
+    assert wait.until(EC.visibility_of_element_located((By.ID, "message"))).text == "It's gone!"
+
+    driver.find_element(By.CSS_SELECTOR, "#input-example button").click()
+    box = wait.until(EC.element_to_be_clickable((By.CSS_SELECTOR, "#input-example input")))
+    box.send_keys("Neer")
+    wait.until(EC.text_to_be_present_in_element((By.ID, "message"), "It's enabled!"))
+finally:
+    driver.quit()</pre></details></div>
+
+<div class="ex" data-id="w04-l3-e3"><p class="q">On <code>/add_remove_elements/</code>, click "Add Element" 3 times, then use a <b>custom</b> wait condition to wait until exactly 3 "Delete" buttons exist (class <code>added-manually</code>).</p>
+<details class="ans"><summary>Show answer</summary><pre class="code" data-verify="w04-l3">from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+
+driver = webdriver.Chrome()
+try:
+    driver.get("https://the-internet.herokuapp.com/add_remove_elements/")
+    add = driver.find_element(By.CSS_SELECTOR, "button[onclick='addElement()']")
+    for _ in range(3):
+        add.click()
+    buttons = WebDriverWait(driver, 5).until(
+        lambda d: (els := d.find_elements(By.CLASS_NAME, "added-manually")) and len(els) == 3 and els
+    )
+    assert len(buttons) == 3
+finally:
+    driver.quit()</pre><p>The <code>:=</code> (walrus) operator finds the elements once and returns them when the count matches. A clear two-step version works just as well.</p></details></div>
+
+<div class="ex" data-id="w04-l3-e4"><p class="q">Scenario question: "Clicking Checkout throws <code>ElementClickInterceptedException</code> about 1 run in 10." Give three possible causes and the right fix for each.</p>
+<details class="ans"><summary>Show answer</summary><ul><li><b>A loading overlay or spinner</b> is still fading out → wait for <code>invisibility_of_element_located</code> on the overlay before clicking.</li><li><b>A sticky header or cookie banner</b> covers the button after scrolling → close the banner in setup; scroll the element to the centre (<code>scrollIntoView({block: 'center'})</code>).</li><li><b>An animation</b> is still moving the button → wait for <code>element_to_be_clickable</code>, and if needed for its position to stop changing; ask developers to turn off animations in test environments.</li></ul><p>Then say what you would <i>not</i> do: add a sleep, or switch to a JavaScript click that hides a real usability bug.</p></details></div>
+</section>
+
+<!-- ===================================================== L4 ===================================================== -->
+<section class="lesson" id="w04-l4">
+<p>Now you build the framework. It's the Page Object Model with pytest, the same pattern you practised with a fake driver in Week 3, now running against a real browser. By the end of the week this becomes your first portfolio project.</p>
+
+<h2>Project structure</h2>
+<pre class="code">saucedemo-selenium/
+├── pages/
+│   ├── __init__.py
+│   ├── base_page.py         waits and common actions
+│   ├── login_page.py
+│   ├── inventory_page.py
+│   ├── cart_page.py
+│   └── checkout_page.py
+├── tests/
+│   ├── test_login.py
+│   ├── test_inventory.py
+│   └── test_checkout.py
+├── conftest.py              driver fixture, options, screenshot on failure
+├── config.py                URLs and users
+├── pytest.ini
+├── requirements.txt
+└── .gitignore               add: screenshots/</pre>
+
+<h2>config.py</h2>
+<pre class="code">import os
+
+BASE_URL = os.getenv("BASE_URL", "https://www.saucedemo.com")
+# Sauce Demo's password is public. In a real project there is NO default:
+# os.environ["APP_PASSWORD"] fails fast when the secret is missing.
+PASSWORD = os.getenv("SAUCE_PASSWORD", "secret_sauce")
+STANDARD_USER = "standard_user"
+LOCKED_USER = "locked_out_user"</pre>
+
+<h2>pages/base_page.py</h2>
+<pre class="code">from selenium.common.exceptions import TimeoutException
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import WebDriverWait
+
+import config
+
+
+class BasePage:
+    PATH = "/"
+
+    def __init__(self, driver, timeout=10):
+        self.driver = driver
+        self.wait = WebDriverWait(driver, timeout)
+
+    def open(self):
+        self.driver.get(config.BASE_URL + self.PATH)
+        return self
+
+    def find(self, locator):
+        return self.wait.until(EC.visibility_of_element_located(locator))
+
+    def find_all(self, locator):
+        return self.driver.find_elements(*locator)
+
+    def click(self, locator):
+        self.wait.until(EC.element_to_be_clickable(locator)).click()
+
+    def type(self, locator, text):
+        field = self.find(locator)
+        field.clear()
+        field.send_keys(text)
+
+    def text_of(self, locator):
+        return self.find(locator).text
+
+    def is_visible(self, locator, timeout=2):
+        try:
+            WebDriverWait(self.driver, timeout).until(EC.visibility_of_element_located(locator))
+            return True
+        except TimeoutException:
+            return False</pre>
+<p>Every helper takes a <b>locator</b>, not an element, and finds it fresh each time. That design removes most stale-element errors.</p>
+
+<h2>The page classes</h2>
+<pre class="code"># pages/login_page.py
+from selenium.webdriver.common.by import By
+
+from pages.base_page import BasePage
+from pages.inventory_page import InventoryPage
+
+
+class LoginPage(BasePage):
+    PATH = "/"
+    USERNAME = (By.ID, "user-name")
+    PASSWORD = (By.ID, "password")
+    SUBMIT = (By.ID, "login-button")
+    ERROR = (By.CSS_SELECTOR, "[data-test='error']")
+
+    def login(self, username, password):
+        self.type(self.USERNAME, username)
+        self.type(self.PASSWORD, password)
+        self.click(self.SUBMIT)
+
+    def login_as(self, username, password):
+        """Successful login: returns the next page, so tests can chain."""
+        self.login(username, password)
+        return InventoryPage(self.driver).wait_until_loaded()
+
+    def error_message(self):
+        return self.text_of(self.ERROR)</pre>
+<pre class="code"># pages/inventory_page.py
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support import expected_conditions as EC
+from selenium.webdriver.support.ui import Select
+
+from pages.base_page import BasePage
+
+
+class InventoryPage(BasePage):
+    PATH = "/inventory.html"
+    TITLE = (By.CLASS_NAME, "title")
+    NAMES = (By.CLASS_NAME, "inventory_item_name")
+    PRICES = (By.CLASS_NAME, "inventory_item_price")
+    BADGE = (By.CLASS_NAME, "shopping_cart_badge")
+    CART_LINK = (By.CLASS_NAME, "shopping_cart_link")
+    SORT = (By.CSS_SELECTOR, "[data-test='product-sort-container']")
+
+    def wait_until_loaded(self):
+        self.wait.until(EC.url_contains(self.PATH))
+        self.find(self.TITLE)
+        return self
+
+    def product_names(self):
+        return [e.text for e in self.find_all(self.NAMES)]
+
+    def product_prices(self):
+        return [float(e.text.replace("$", "")) for e in self.find_all(self.PRICES)]
+
+    def add_to_cart(self, slug):
+        self.click((By.CSS_SELECTOR, f"[data-test='add-to-cart-{slug}']"))
+
+    def remove_from_cart(self, slug):
+        self.click((By.CSS_SELECTOR, f"[data-test='remove-{slug}']"))
+
+    def cart_count(self):
+        badges = self.find_all(self.BADGE)
+        return int(badges[0].text) if badges else 0
+
+    def sort_by(self, value):          # 'az', 'za', 'lohi', 'hilo'
+        Select(self.find(self.SORT)).select_by_value(value)
+
+    def open_cart(self):
+        from pages.cart_page import CartPage    # local import avoids a circular import
+        self.click(self.CART_LINK)
+        return CartPage(self.driver)</pre>
+<pre class="code"># pages/cart_page.py
+from selenium.webdriver.common.by import By
+
+from pages.base_page import BasePage
+from pages.checkout_page import CheckoutPage
+
+
+class CartPage(BasePage):
+    PATH = "/cart.html"
+    ITEM_NAMES = (By.CLASS_NAME, "inventory_item_name")
+    CHECKOUT = (By.ID, "checkout")
+
+    def item_names(self):
+        return [e.text for e in self.find_all(self.ITEM_NAMES)]
+
+    def checkout(self):
+        self.click(self.CHECKOUT)
+        return CheckoutPage(self.driver)</pre>
+<pre class="code"># pages/checkout_page.py
+from selenium.webdriver.common.by import By
+
+from pages.base_page import BasePage
+
+
+def _money(text):                      # "Item total: $39.98" -&gt; 39.98
+    return float(text.split("$")[1])
+
+
+class CheckoutPage(BasePage):
+    FIRST = (By.ID, "first-name")
+    LAST = (By.ID, "last-name")
+    POSTCODE = (By.ID, "postal-code")
+    CONTINUE = (By.ID, "continue")
+    FINISH = (By.ID, "finish")
+    ERROR = (By.CSS_SELECTOR, "[data-test='error']")
+    SUBTOTAL = (By.CLASS_NAME, "summary_subtotal_label")
+    TAX = (By.CLASS_NAME, "summary_tax_label")
+    TOTAL = (By.CLASS_NAME, "summary_total_label")
+    COMPLETE = (By.CLASS_NAME, "complete-header")
+
+    def fill_details(self, first, last, postcode):
+        self.type(self.FIRST, first)
+        self.type(self.LAST, last)
+        self.type(self.POSTCODE, postcode)
+        self.click(self.CONTINUE)
+        return self
+
+    def amounts(self):
+        return {
+            "subtotal": _money(self.text_of(self.SUBTOTAL)),
+            "tax": _money(self.text_of(self.TAX)),
+            "total": _money(self.text_of(self.TOTAL)),
+        }
+
+    def finish(self):
+        self.click(self.FINISH)
+        return self.text_of(self.COMPLETE)
+
+    def error_message(self):
+        return self.text_of(self.ERROR)</pre>
+
+<h2>conftest.py: the driver fixture</h2>
+<pre class="code">from pathlib import Path
+
+import pytest
+from selenium import webdriver
+
+SCREENSHOTS = Path(__file__).parent / "screenshots"
+
+
+def pytest_addoption(parser):
+    parser.addoption("--browser", default="chrome", choices=["chrome", "edge", "firefox"])
+    parser.addoption("--headless", action="store_true", help="run without a visible window")
+
+
+def make_driver(name, headless):
+    if name == "chrome":
+        options = webdriver.ChromeOptions()
+    elif name == "edge":
+        options = webdriver.EdgeOptions()
+    else:
+        options = webdriver.FirefoxOptions()
+    if headless:
+        options.add_argument("--headless=new" if name != "firefox" else "-headless")
+    options.add_argument("--window-size=1366,768")
+    factory = {"chrome": webdriver.Chrome, "edge": webdriver.Edge, "firefox": webdriver.Firefox}
+    return factory[name](options=options)
+
+
+@pytest.fixture
+def driver(request):
+    drv = make_driver(request.config.getoption("--browser"), request.config.getoption("--headless"))
+    yield drv
+    drv.quit()
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    """After each test's main phase, save a screenshot if it failed."""
+    outcome = yield
+    report = outcome.get_result()
+    if report.when == "call" and report.failed:
+        drv = item.funcargs.get("driver")
+        if drv is not None:
+            SCREENSHOTS.mkdir(exist_ok=True)
+            drv.save_screenshot(str(SCREENSHOTS / f"{item.name}.png"))</pre>
+<p>The driver is <b>function-scoped</b>: every test gets a fresh browser. It's slower, but no test can affect another, and that is what makes parallel runs safe (Lesson 6). The hook is how pytest lets you act on a test's result. Interviewers ask about it ("How do you take screenshots on failure?").</p>
+
+<h2>Tests that read like test cases</h2>
+<pre class="code"># tests/test_login.py
+import pytest
+
+import config
+from pages.login_page import LoginPage
+
+
+def test_standard_user_can_log_in(driver):
+    inventory = LoginPage(driver).open().login_as(config.STANDARD_USER, config.PASSWORD)
+    assert inventory.product_names(), "inventory should list products"
+
+
+@pytest.mark.parametrize("username, password, message", [
+    ("locked_out_user", config.PASSWORD, "Epic sadface: Sorry, this user has been locked out."),
+    ("", config.PASSWORD, "Epic sadface: Username is required"),
+    ("standard_user", "", "Epic sadface: Password is required"),
+    ("standard_user", "wrong", "Epic sadface: Username and password do not match any user in this service"),
+], ids=["locked", "no-username", "no-password", "wrong-password"])
+def test_login_errors(driver, username, password, message):
+    page = LoginPage(driver).open()
+    page.login(username, password)
+    assert page.error_message() == message</pre>
+<pre class="code"># tests/test_checkout.py
+import config
+from pages.login_page import LoginPage
+
+
+def test_checkout_two_items(driver):
+    inventory = LoginPage(driver).open().login_as(config.STANDARD_USER, config.PASSWORD)
+    inventory.add_to_cart("sauce-labs-backpack")
+    inventory.add_to_cart("sauce-labs-bike-light")
+    assert inventory.cart_count() == 2
+
+    cart = inventory.open_cart()
+    assert sorted(cart.item_names()) == ["Sauce Labs Backpack", "Sauce Labs Bike Light"]
+
+    checkout = cart.checkout().fill_details("Neer", "Agrawal", "560001")
+    a = checkout.amounts()
+    assert a["subtotal"] == 39.98
+    assert round(a["subtotal"] + a["tax"], 2) == a["total"]
+    assert checkout.finish() == "Thank you for your order!"</pre>
+<pre class="code">pytest -v                          # visible Chrome
+pytest -v --headless --browser edge</pre>
+<div class="callout"><b>Where Sauce Demo can change</b>The locators here match Sauce Demo's current markup. Sites change; if a locator stops matching, check it in DevTools (Lesson 2) and update it in <b>one</b> page class. That single fix is the reason POM exists, and a good story to tell in interviews.</div>
+
+<div class="callout interview"><b>Interview questions</b>
+<p><b>What is POM and why use it?</b> One class per page, holding its locators and actions. Tests call methods, not locators. A UI change is fixed in one place; tests read like business steps; code is reused.</p>
+<p><b>Should page objects contain assertions?</b> Generally no: pages return data and tests assert on it. The exception is a "page loaded" check, as in <code>wait_until_loaded</code>.</p>
+<p><b>Page Factory?</b> A Java pattern (<code>@FindBy</code> with lazy initialisation). Python frameworks don't use it, and even in Java many teams have moved away from it because it can cause stale-element problems.</p>
+<p><b>How do you take a screenshot on failure?</b> A pytest <code>pytest_runtest_makereport</code> hook (a TestNG listener, <code>ITestListener.onTestFailure</code>, in Java) that saves the screenshot and attaches it to the report.</p>
+</div>
+
+<h2>Exercises</h2>
+<div class="ex" data-id="w04-l4-e1"><p class="q">Build the project above and get the 6 tests passing (1 login, 4 login errors, 1 checkout). Then make the checkout test fail on purpose (expect 3 items) and confirm a screenshot appears in <code>screenshots/</code>.</p>
+<details class="ans"><summary>Show answer</summary><pre class="code">pytest -v
+# 6 passed
+# change: assert inventory.cart_count() == 3
+pytest -v tests/test_checkout.py
+# 1 failed  →  screenshots/test_checkout_two_items.png</pre><p>Undo the change afterwards. A deliberate failure is the only way to prove your failure handling works.</p></details></div>
+
+<div class="ex" data-id="w04-l4-e2"><p class="q">Add <code>tests/test_inventory.py</code> with three tests: there are 6 products; sorting "Price (low to high)" gives ascending prices; sorting "Name (Z to A)" gives reverse-alphabetical names.</p>
+<details class="ans"><summary>Show answer</summary><pre class="code">import pytest
+
+import config
+from pages.login_page import LoginPage
+
+
+@pytest.fixture
+def inventory(driver):
+    return LoginPage(driver).open().login_as(config.STANDARD_USER, config.PASSWORD)
+
+
+def test_six_products(inventory):
+    assert len(inventory.product_names()) == 6
+
+
+def test_sort_price_low_to_high(inventory):
+    inventory.sort_by("lohi")
+    prices = inventory.product_prices()
+    assert prices == sorted(prices)
+
+
+def test_sort_name_z_to_a(inventory):
+    inventory.sort_by("za")
+    names = inventory.product_names()
+    assert names == sorted(names, reverse=True)</pre><p>The <code>inventory</code> fixture builds on <code>driver</code>, so each test starts already logged in. That's fixture composition from Week 3, used in a real framework.</p></details></div>
+
+<div class="ex" data-id="w04-l4-e3"><p class="q">Add a test that adds the Backpack, removes it again, and checks that the badge disappears (count 0).</p>
+<details class="ans"><summary>Show answer</summary><pre class="code">def test_add_then_remove(inventory):
+    inventory.add_to_cart("sauce-labs-backpack")
+    assert inventory.cart_count() == 1
+    inventory.remove_from_cart("sauce-labs-backpack")
+    assert inventory.cart_count() == 0</pre></details></div>
+
+<div class="ex" data-id="w04-l4-e4"><p class="q">Add a negative checkout test: leave the postcode empty and assert the error <code>Error: Postal Code is required</code>.</p>
+<details class="ans"><summary>Show answer</summary><pre class="code">def test_checkout_requires_postcode(inventory):
+    inventory.add_to_cart("sauce-labs-onesie")
+    checkout = inventory.open_cart().checkout().fill_details("Neer", "Agrawal", "")
+    assert checkout.error_message() == "Error: Postal Code is required"</pre></details></div>
+</section>
+
+<!-- ===================================================== L5 ===================================================== -->
+<section class="lesson" id="w04-l5">
+<p>Alerts, frames, windows, mouse and keyboard actions, dropdowns, uploads, JavaScript and tables. Each topic below has a page on The Internet to practise on, and every example on this page was run against the live site.</p>
+
+<h2>JavaScript alerts</h2>
+<pre class="code" data-verify="w04-l5">from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+
+driver = webdriver.Chrome()
+wait = WebDriverWait(driver, 10)
+try:
+    driver.get("https://the-internet.herokuapp.com/javascript_alerts")
+    result = (By.ID, "result")
+
+    driver.find_element(By.CSS_SELECTOR, "button[onclick='jsAlert()']").click()
+    alert = wait.until(EC.alert_is_present())
+    assert alert.text == "I am a JS Alert"
+    alert.accept()
+    assert driver.find_element(*result).text == "You successfully clicked an alert"
+
+    driver.find_element(By.CSS_SELECTOR, "button[onclick='jsConfirm()']").click()
+    wait.until(EC.alert_is_present()).dismiss()
+    assert driver.find_element(*result).text == "You clicked: Cancel"
+
+    driver.find_element(By.CSS_SELECTOR, "button[onclick='jsPrompt()']").click()
+    prompt = wait.until(EC.alert_is_present())
+    prompt.send_keys("Neer")
+    prompt.accept()
+    assert driver.find_element(*result).text == "You entered: Neer"
+finally:
+    driver.quit()</pre>
+<p>Browser-native alerts block the page until handled. Custom HTML modals aren't alerts; you handle those as normal elements.</p>
+
+<h2>Frames</h2>
+<p>An iframe is a page inside a page. Selenium only sees one document at a time, so you must <b>switch in</b>, then <b>switch back out</b>:</p>
+<pre class="code" data-verify="w04-l5">from selenium import webdriver
+from selenium.webdriver.common.by import By
+
+driver = webdriver.Chrome()
+try:
+    driver.get("https://the-internet.herokuapp.com/nested_frames")
+    driver.switch_to.frame("frame-top")           # by name or id
+    driver.switch_to.frame("frame-middle")        # nested: switch again
+    assert driver.find_element(By.ID, "content").text == "MIDDLE"
+
+    driver.switch_to.parent_frame()               # up one level
+    driver.switch_to.default_content()            # back to the main page
+    driver.switch_to.frame("frame-bottom")
+    assert driver.find_element(By.TAG_NAME, "body").text.strip() == "BOTTOM"
+finally:
+    driver.quit()</pre>
+<p>You can also switch with an element (<code>switch_to.frame(driver.find_element(By.CSS_SELECTOR, "iframe"))</code>), or wait and switch in one step with <code>EC.frame_to_be_available_and_switch_to_it(locator)</code>.</p>
+
+<h2>Windows and tabs</h2>
+<pre class="code" data-verify="w04-l5">from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+
+driver = webdriver.Chrome()
+try:
+    driver.get("https://the-internet.herokuapp.com/windows")
+    original = driver.current_window_handle
+    driver.find_element(By.LINK_TEXT, "Click Here").click()
+    WebDriverWait(driver, 10).until(EC.number_of_windows_to_be(2))
+
+    new = [h for h in driver.window_handles if h != original][0]
+    driver.switch_to.window(new)
+    assert driver.find_element(By.TAG_NAME, "h3").text == "New Window"
+
+    driver.close()                      # close the new tab
+    driver.switch_to.window(original)   # you MUST switch back after close
+    driver.switch_to.new_window("tab")  # Selenium 4: open your own new tab
+    assert len(driver.window_handles) == 2
+finally:
+    driver.quit()</pre>
+
+<h2>Mouse and keyboard: ActionChains</h2>
+<pre class="code" data-verify="w04-l5">from selenium import webdriver
+from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+
+driver = webdriver.Chrome()
+wait = WebDriverWait(driver, 10)
+try:
+    # hover
+    driver.get("https://the-internet.herokuapp.com/hovers")
+    first = driver.find_elements(By.CLASS_NAME, "figure")[0]
+    ActionChains(driver).move_to_element(first).perform()
+    caption = wait.until(EC.visibility_of(first.find_element(By.CSS_SELECTOR, ".figcaption h5")))
+    assert caption.text == "name: user1"
+
+    # right-click
+    driver.get("https://the-internet.herokuapp.com/context_menu")
+    ActionChains(driver).context_click(driver.find_element(By.ID, "hot-spot")).perform()
+    alert = wait.until(EC.alert_is_present())
+    assert alert.text == "You selected a context menu"
+    alert.accept()
+
+    # keyboard
+    driver.get("https://the-internet.herokuapp.com/key_presses")
+    driver.find_element(By.ID, "target").send_keys(Keys.SPACE)
+    assert driver.find_element(By.ID, "result").text == "You entered: SPACE"
+finally:
+    driver.quit()</pre>
+<p>Why SPACE and not ENTER? On this page the box sits inside a form, so ENTER submits it and reloads the page. The result is then empty and the old element is stale. That's a real example of <code>StaleElementReferenceException</code> from Lesson 3.</p>
+<p>Other actions: <code>double_click</code>, <code>drag_and_drop(src, dst)</code>, <code>click_and_hold</code>, <code>key_down(Keys.CONTROL)</code> … <code>key_up</code>, <code>scroll_to_element</code>. Nothing happens until <code>.perform()</code>.</p>
+<div class="callout warn"><b>Drag and drop that "does nothing"</b>Many pages, including The Internet's <code>/drag_and_drop</code>, use HTML5 drag events, which Selenium's <code>drag_and_drop</code> doesn't trigger in Chrome. The usual workaround is a small JavaScript snippet that dispatches the drag events. Knowing this limitation is a strong interview answer.</div>
+
+<h2>Dropdowns: Select</h2>
+<pre class="code" data-verify="w04-l5">from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import Select
+
+driver = webdriver.Chrome()
+try:
+    driver.get("https://the-internet.herokuapp.com/dropdown")
+    dropdown = Select(driver.find_element(By.ID, "dropdown"))
+    dropdown.select_by_visible_text("Option 2")
+    assert dropdown.first_selected_option.text == "Option 2"
+    dropdown.select_by_value("1")
+    assert [o.text for o in dropdown.options] == ["Please select an option", "Option 1", "Option 2"]
+finally:
+    driver.quit()</pre>
+<p><code>Select</code> only works on real <code>&lt;select&gt;</code> elements. Custom dropdowns (React or Angular <code>div</code>s) are handled by clicking to open them and clicking the option.</p>
+
+<h2>File upload</h2>
+<pre class="code" data-verify="w04-l5">import tempfile
+from pathlib import Path
+
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+
+driver = webdriver.Chrome()
+try:
+    path = Path(tempfile.gettempdir()) / "prescription.txt"
+    path.write_text("test upload", encoding="utf-8")
+
+    driver.get("https://the-internet.herokuapp.com/upload")
+    driver.find_element(By.ID, "file-upload").send_keys(str(path))   # absolute path, no dialog
+    driver.find_element(By.ID, "file-submit").click()
+    assert driver.find_element(By.ID, "uploaded-files").text == "prescription.txt"
+finally:
+    driver.quit()</pre>
+<p>Never click the "Choose file" button: that opens an operating-system dialog Selenium can't control. Send the path to the <code>input type="file"</code> instead. On a remote Grid, also set <code>driver.file_detector = LocalFileDetector()</code> so the file is sent to the remote machine.</p>
+
+<h2>JavaScript executor</h2>
+<pre class="code">driver.execute_script("arguments[0].scrollIntoView({block: 'center'});", element)
+driver.execute_script("return document.readyState") == "complete"
+driver.execute_script("window.scrollTo(0, document.body.scrollHeight);")
+driver.execute_script("arguments[0].click();", element)        # last resort only
+title = driver.execute_script("return document.title;")</pre>
+
+<h2>Web tables</h2>
+<pre class="code" data-verify="w04-l5">from selenium import webdriver
+from selenium.webdriver.common.by import By
+
+driver = webdriver.Chrome()
+try:
+    driver.get("https://the-internet.herokuapp.com/tables")
+    headers = [th.text for th in driver.find_elements(By.CSS_SELECTOR, "#table1 thead th")]
+    rows = [
+        dict(zip(headers, [td.text for td in tr.find_elements(By.TAG_NAME, "td")]))
+        for tr in driver.find_elements(By.CSS_SELECTOR, "#table1 tbody tr")
+    ]
+    top = max(rows, key=lambda r: float(r["Due"].replace("$", "")))
+    assert (top["First Name"], top["Last Name"]) == ("Jason", "Doe")
+finally:
+    driver.quit()</pre>
+<p>Turning a table into a list of dicts and then using normal Python is cleaner than complicated XPath. Interviewers often ask "find the row with the highest value"; this is a strong answer.</p>
+
+<h2>Screenshots and cookies</h2>
+<pre class="code">driver.save_screenshot("page.png")
+element.screenshot("button.png")                 # Selenium 4: one element
+
+driver.get_cookies()
+driver.add_cookie({"name": "session-username", "value": "standard_user"})
+driver.delete_all_cookies()</pre>
+<p>Testers use cookies to skip the login UI in non-login tests: log in once with the API or UI, save the session cookie, and add it in later tests. It makes suites much faster.</p>
+
+<div class="callout interview"><b>Interview questions</b>
+<p><b>How do you handle multiple windows?</b> Store the original handle, wait for the window count, switch to the new handle, close it, and switch back.</p>
+<p><b>What happens if you don't switch back after closing a window?</b> The next command raises <code>NoSuchWindowException</code>.</p>
+<p><b>How do you handle an element inside an iframe?</b> Switch to the frame (by name, index or element, ideally with a wait), act, then <code>default_content()</code>.</p>
+<p><b>How do you upload a file? Download one?</b> Upload: <code>send_keys</code> the path to the file input. Download: set the browser's download folder in options, then check that the file exists, or call the download URL directly with <code>requests</code>.</p>
+<p><b>When do you use JavaScriptExecutor?</b> Scrolling, reading page state, or hidden elements in specific cases. Not as the default click, because it bypasses what a real user experiences.</p>
+</div>
+
+<h2>Exercises</h2>
+<div class="ex" data-id="w04-l5-e1"><p class="q">On <code>/javascript_alerts</code>, click the JS Confirm button and <b>accept</b> it. What text appears in <code>#result</code>?</p>
+<details class="ans"><summary>Show answer</summary><pre class="code">driver.find_element(By.CSS_SELECTOR, "button[onclick='jsConfirm()']").click()
+WebDriverWait(driver, 10).until(EC.alert_is_present()).accept()
+assert driver.find_element(By.ID, "result").text == "You clicked: Ok"</pre></details></div>
+
+<div class="ex" data-id="w04-l5-e2"><p class="q">On <code>/nested_frames</code>, collect the text of the LEFT, MIDDLE, RIGHT and BOTTOM frames into one list.</p>
+<details class="ans"><summary>Show answer</summary><pre class="code" data-verify="w04-l5">from selenium import webdriver
+from selenium.webdriver.common.by import By
+
+driver = webdriver.Chrome()
+try:
+    driver.get("https://the-internet.herokuapp.com/nested_frames")
+    texts = []
+    for name in ["frame-left", "frame-middle", "frame-right"]:
+        driver.switch_to.default_content()
+        driver.switch_to.frame("frame-top")
+        driver.switch_to.frame(name)
+        texts.append(driver.find_element(By.TAG_NAME, "body").text.strip())
+    driver.switch_to.default_content()
+    driver.switch_to.frame("frame-bottom")
+    texts.append(driver.find_element(By.TAG_NAME, "body").text.strip())
+    assert texts == ["LEFT", "MIDDLE", "RIGHT", "BOTTOM"]
+finally:
+    driver.quit()</pre></details></div>
+
+<div class="ex" data-id="w04-l5-e3"><p class="q">On <code>/hovers</code>, hover over each of the 3 profile images in turn and collect the captions.</p>
+<details class="ans"><summary>Show answer</summary><pre class="code" data-verify="w04-l5">from selenium import webdriver
+from selenium.webdriver.common.action_chains import ActionChains
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+
+driver = webdriver.Chrome()
+try:
+    driver.get("https://the-internet.herokuapp.com/hovers")
+    names = []
+    for fig in driver.find_elements(By.CLASS_NAME, "figure"):
+        ActionChains(driver).move_to_element(fig).perform()
+        h5 = WebDriverWait(driver, 5).until(EC.visibility_of(fig.find_element(By.CSS_SELECTOR, ".figcaption h5")))
+        names.append(h5.text)
+    assert names == ["name: user1", "name: user2", "name: user3"]
+finally:
+    driver.quit()</pre></details></div>
+
+<div class="ex" data-id="w04-l5-e4"><p class="q">On <code>/tables</code>, using the list-of-dicts approach, return the emails of everyone in table 1 whose due amount is exactly $50.00.</p>
+<details class="ans"><summary>Show answer</summary><pre class="code">fifty = [r["Email"] for r in rows if r["Due"] == "$50.00"]
+assert fifty == ["jsmith@gmail.com", "tconway@earthlink.net"]</pre></details></div>
+</section>
+
+<!-- ===================================================== L6 ===================================================== -->
+<section class="lesson" id="w04-l6">
+<p>This lesson covers running your suite on several browsers, on a Grid and in parallel, dealing with flaky tests the way senior engineers do, and finishing your Sauce Demo project. It ends with the Selenium question bank. Learn those answers.</p>
+
+<h2>Cross-browser and headless</h2>
+<p>Your <code>--browser</code> and <code>--headless</code> options already cover this:</p>
+<pre class="code">pytest --browser chrome
+pytest --browser edge --headless
+pytest --browser firefox            # needs Firefox installed</pre>
+
+<h2>Selenium Grid 4</h2>
+<p>Grid runs browsers on other machines or containers, so a suite can use many browsers at once and CI servers don't need browsers installed. The quickest way to start one is Docker:</p>
+<pre class="code">docker run -d -p 4444:4444 --shm-size="2g" selenium/standalone-chrome
+# Grid UI: http://localhost:4444</pre>
+<p>Point your fixture at it with <code>webdriver.Remote</code>:</p>
+<pre class="code">def make_remote_driver(grid_url, headless=True):
+    options = webdriver.ChromeOptions()
+    options.add_argument("--window-size=1366,768")
+    return webdriver.Remote(command_executor=grid_url, options=options)
+
+# conftest: parser.addoption("--grid", default=None)
+# in the driver fixture:
+#   grid = request.config.getoption("--grid")
+#   drv = make_remote_driver(grid) if grid else make_driver(...)</pre>
+<pre class="code">pytest --grid http://localhost:4444</pre>
+<div class="tablewrap"><table class="ref">
+<tr><th>Grid mode</th><th>What it is</th></tr>
+<tr><td>Standalone</td><td>Everything in one process or container; ideal on a laptop or in simple CI</td></tr>
+<tr><td>Hub and Node</td><td>The hub receives sessions and nodes run the browsers; scale by adding nodes</td></tr>
+<tr><td>Distributed</td><td>Router, distributor, session map and queue as separate parts; for large setups</td></tr>
+</table></div>
+<p>Cloud grids such as BrowserStack and Sauce Labs (both on your resume) are the same idea with a different <code>command_executor</code> URL and capabilities.</p>
+
+<h2>Parallel runs with pytest-xdist</h2>
+<pre class="code">pip install pytest-xdist
+pytest -n 4 --headless       # 4 worker processes
+pytest -n auto --headless    # one per CPU core</pre>
+<p>Parallel runs only work if the tests are <b>independent</b>:</p>
+<ul>
+  <li>a function-scoped driver (yours already is), so every test has its own browser</li>
+  <li>no test relies on another test having run first</li>
+  <li>no shared mutable test data: create unique data per test, e.g. <code>f"qa_{uuid4().hex[:8]}"</code></li>
+  <li>files written with unique names (the screenshot hook uses the test name)</li>
+</ul>
+
+<h2>Flaky tests: how seniors handle them</h2>
+<ol>
+  <li><b>Measure.</b> Re-run the suspect test 20 times (<code>pytest --count=20</code> with <code>pytest-repeat</code>) to confirm it's flaky and see how often it fails.</li>
+  <li><b>Find the cause.</b> Read the screenshot and logs. It's usually a wait condition, test data collisions, test order, the environment, or animations.</li>
+  <li><b>Fix the cause</b>: a correct explicit wait, isolated data, better locators.</li>
+  <li><b>Quarantine if you must.</b> Mark it (<code>@pytest.mark.flaky</code> or a "quarantine" marker), raise a ticket, and keep it out of the release gate until it's fixed.</li>
+  <li><b>Use retries carefully.</b> <code>pytest-rerunfailures</code> (<code>--reruns 1</code>) hides symptoms. Track how many tests needed a rerun; if that number grows, the suite is degrading.</li>
+</ol>
+
+<h2>Capstone checklist: saucedemo-selenium</h2>
+<ul>
+  <li>At least 15 tests across login, inventory, cart and checkout, all passing headless</li>
+  <li>Page Object Model with a BasePage; no locators in test files; no <code>time.sleep</code></li>
+  <li><code>--browser</code> and <code>--headless</code> options; screenshot on failure</li>
+  <li>Runs in parallel: <code>pytest -n 4 --headless</code> passes three times in a row</li>
+  <li>README: what it covers, how to run it, the design choices (copy the structure from Week 3's README)</li>
+  <li>Pushed to GitHub with a sensible commit history</li>
+</ul>
+<p>In Week 6 you'll add Allure reports and GitHub Actions to this same repository.</p>
+
+<h2>Selenium interview question bank</h2>
+<div class="tablewrap"><table class="ref">
+<tr><th>Question</th><th>Model answer</th></tr>
+<tr><td>How do you decide what to automate?</td><td>Stable, repeated, high-value flows: smoke, regression, data-driven, cross-browser. Not one-off checks, rapidly changing UI, or things that need human judgement (look and feel, exploratory testing).</td></tr>
+<tr><td>Explain your framework.</td><td>pytest + Selenium with POM; a BasePage with explicit-wait helpers; config and secrets from environment variables; a driver factory with browser, headless and grid options; fixtures for setup; parametrized data-driven tests; screenshot on failure; parallel runs with xdist; reports and CI (Week 6).</td></tr>
+<tr><td>How do you handle synchronisation?</td><td>Explicit waits with the right condition, implicit wait kept at 0, no sleeps, helpers that wait before acting.</td></tr>
+<tr><td>Test is flaky, what do you do?</td><td>The 5-step flaky-test process above.</td></tr>
+<tr><td>Hidden elements?</td><td>Find out why they're hidden; interact with whatever reveals them (hover, click, scroll). Use JavaScript only if a real user could still reach the element.</td></tr>
+<tr><td>Shadow DOM?</td><td>Selenium 4: <code>host.shadow_root.find_element(By.CSS_SELECTOR, ...)</code>.</td></tr>
+<tr><td>How do you handle CAPTCHA and OTP?</td><td>You don't automate them. Ask for a test bypass in QA environments, a fixed OTP for test numbers, or read the OTP from a test API or database.</td></tr>
+<tr><td>Data-driven testing?</td><td><code>pytest.mark.parametrize</code> fed from CSV or JSON files (TestNG <code>@DataProvider</code> in Java).</td></tr>
+<tr><td>How do you run tests on multiple browsers?</td><td>A driver factory with a <code>--browser</code> option, local or on a Grid or BrowserStack, often as a CI matrix.</td></tr>
+<tr><td>Assertion vs verification (hard vs soft assert)?</td><td>A hard assert stops the test; a soft assert collects failures and reports them at the end (<code>pytest-check</code>, TestNG <code>SoftAssert</code>). Use soft asserts for checking many fields on one page.</td></tr>
+<tr><td>Why is your suite slow, and how do you speed it up?</td><td>Run in parallel; set up state through the API or cookies instead of the UI; headless in CI; remove sleeps; push checks down to API tests (test pyramid).</td></tr>
+<tr><td>Selenium vs Playwright?</td><td>Selenium is the W3C standard with the widest language and browser support, a huge ecosystem and Grid. Playwright has built-in auto-waiting, tracing and network mocking, and is very fast. Choose based on the team's stack (you'll get hands-on with Playwright in Week 9).</td></tr>
+</table></div>
+
+<h2>Exercises</h2>
+<div class="ex" data-id="w04-l6-e1"><p class="q">Install <code>pytest-xdist</code> and run your suite with <code>-n 4 --headless</code>. Compare the total time with a serial run.</p>
+<details class="ans"><summary>Show answer</summary><pre class="code">pip install pytest-xdist
+pytest --headless                  # note the time, e.g. 60s
+pytest -n 4 --headless             # expect roughly a third to a half of that</pre><p>It's not 4× faster, because browser start-up and the slowest test set a floor. Saying that in an interview shows you've actually done it.</p></details></div>
+
+<div class="ex" data-id="w04-l6-e2"><p class="q">Add a <code>--grid</code> option to your conftest that switches the fixture to <code>webdriver.Remote</code>. If you have Docker, run the suite against <code>selenium/standalone-chrome</code>.</p>
+<details class="ans"><summary>Show answer</summary><pre class="code">def pytest_addoption(parser):
+    parser.addoption("--browser", default="chrome", choices=["chrome", "edge", "firefox"])
+    parser.addoption("--headless", action="store_true")
+    parser.addoption("--grid", default=None, help="Selenium Grid URL, e.g. http://localhost:4444")
+
+
+@pytest.fixture
+def driver(request):
+    grid = request.config.getoption("--grid")
+    if grid:
+        options = webdriver.ChromeOptions()
+        options.add_argument("--window-size=1366,768")
+        drv = webdriver.Remote(command_executor=grid, options=options)
+    else:
+        drv = make_driver(request.config.getoption("--browser"), request.config.getoption("--headless"))
+    yield drv
+    drv.quit()</pre></details></div>
+
+<div class="ex" data-id="w04-l6-e3"><p class="q">Finish the capstone checklist and push <code>saucedemo-selenium</code> to GitHub. Then answer, out loud and in under 2 minutes: "Walk me through your framework."</p>
+<details class="ans"><summary>Show answer</summary><p>A strong 2-minute answer covers, in order: the tools (pytest, Selenium 4, Python); the structure (pages, tests, conftest, config); BasePage and its explicit-wait helpers; how a test reads; data-driven tests; the driver factory and its options; screenshot on failure; parallel runs and why tests are independent; what's next (Allure, CI, API tests). Record yourself once. It's uncomfortable, and it works. Then bring the recording, or the repo link, to your tutor for review.</p></details></div>
+</section>
+
+</body></html>

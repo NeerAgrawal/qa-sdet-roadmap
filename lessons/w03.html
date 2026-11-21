@@ -1,0 +1,1143 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Week 3 lessons</title></head><body>
+
+<!-- ===================================================== L1 ===================================================== -->
+<section class="lesson" id="w03-l1">
+<p>You've written Python for Selenium and Robot Framework, so this lesson is a refresh, not a beginner course. It concentrates on the parts of Python that automation code uses all the time, and on the features interviewers like to probe: comprehensions, dictionaries, function arguments, and mutability.</p>
+
+<h2>Set up a working folder</h2>
+<p>Every lesson this week runs on your machine. Open PowerShell and create a project with its own virtual environment:</p>
+<pre class="code">mkdir qa-python; cd qa-python
+python -m venv .venv
+.venv\Scripts\Activate.ps1      # your prompt now starts with (.venv)
+python -m pip install --upgrade pip pytest</pre>
+<div class="callout warn"><b>If activation is blocked</b>Windows may refuse to run <code>Activate.ps1</code>. Run this once: <code>Set-ExecutionPolicy -Scope CurrentUser RemoteSigned</code>. In VS Code, choose the interpreter inside <code>.venv</code> (Ctrl+Shift+P → "Python: Select Interpreter").</div>
+<p>Save each example as a <code>.py</code> file and run it with <code>python file.py</code>. Each exercise answer ends with <code>assert</code> lines: if the script finishes without an error, your function is right.</p>
+
+<h2>Core data structures</h2>
+<div class="tablewrap"><table class="ref">
+<tr><th>Type</th><th>Example</th><th>Ordered</th><th>Changeable</th><th>Duplicates</th><th>Typical test-automation use</th></tr>
+<tr><td>list</td><td><code>["chrome", "edge"]</code></td><td>yes</td><td>yes</td><td>yes</td><td>browsers to run, rows read from a table</td></tr>
+<tr><td>tuple</td><td><code>(By.ID, "login")</code></td><td>yes</td><td>no</td><td>yes</td><td>locators, fixed pairs</td></tr>
+<tr><td>dict</td><td><code>{"user": "qa1", "env": "uat"}</code></td><td>yes (insertion)</td><td>yes</td><td>keys unique</td><td>JSON payloads, config, test data</td></tr>
+<tr><td>set</td><td><code>{"P1", "P2"}</code></td><td>no</td><td>yes</td><td>no</td><td>removing duplicates, comparing two lists</td></tr>
+</table></div>
+<pre class="code">expected = {"Backpack", "Bike Light", "Onesie"}
+actual   = {"Backpack", "Onesie", "Fleece Jacket"}
+
+print(expected - actual)   # {'Bike Light'}      missing from the page
+print(actual - expected)   # {'Fleece Jacket'}   unexpected on the page
+print(expected &amp; actual)   # in both</pre>
+<p>Set difference is the quickest way to compare an expected list with what the UI or API returned.</p>
+
+<h3>Dictionaries: the shape of every API response</h3>
+<pre class="code">response = {"id": 1001, "status": "Delivered", "items": [{"sku": 101, "qty": 2}]}
+
+response["status"]               # 'Delivered'
+response.get("coupon")           # None, no KeyError
+response.get("coupon", "NONE")   # default value
+response["items"][0]["qty"]      # 2
+
+for key, value in response.items():
+    print(key, "=&gt;", value)
+
+defaults  = {"browser": "chrome", "headless": True, "timeout": 10}
+overrides = {"headless": False}
+config = {**defaults, **overrides}   # later keys win
+# {'browser': 'chrome', 'headless': False, 'timeout': 10}</pre>
+
+<h2>Comprehensions</h2>
+<p>A comprehension builds a list, dict or set from a loop in one readable line. Expect to write one in a coding round.</p>
+<pre class="code">results = [
+    {"name": "test_login",    "status": "passed", "secs": 3.2},
+    {"name": "test_checkout", "status": "failed", "secs": 9.8},
+    {"name": "test_search",   "status": "passed", "secs": 1.1},
+]
+
+failed  = [r["name"] for r in results if r["status"] == "failed"]   # list
+by_name = {r["name"]: r["secs"] for r in results}                   # dict
+states  = {r["status"] for r in results}                            # set
+slowest = max(results, key=lambda r: r["secs"])["name"]             # 'test_checkout'</pre>
+
+<h2>Functions</h2>
+<pre class="code">def login(username, password, remember=False, *, timeout=10):
+    """Positional args, a default, and a keyword-only arg after *."""
+    ...
+
+login("qa1", "secret")                    # remember=False, timeout=10
+login("qa1", "secret", True, timeout=30)  # timeout must be named
+
+def log(message, *args, **kwargs):
+    print(message, args, kwargs)
+
+log("start", 1, 2, env="uat")   # start (1, 2) {'env': 'uat'}</pre>
+<div class="callout warn"><b>Classic bug: mutable default argument</b>
+<pre class="code">def add_tag(tag, tags=[]):      # the same list is reused on every call!
+    tags.append(tag)
+    return tags
+
+add_tag("smoke")   # ['smoke']
+add_tag("ui")      # ['smoke', 'ui']   surprise
+
+def add_tag(tag, tags=None):    # the fix
+    tags = [] if tags is None else tags
+    tags.append(tag)
+    return tags</pre>
+<p>This is a common interview question. It also causes real test pollution when shared state leaks from one test into the next.</p></div>
+
+<h2>Strings and f-strings</h2>
+<pre class="code">order_id, amount = 1003, 2298.5
+print(f"Order {order_id} total ₹{amount:,.2f}")   # Order 1003 total ₹2,298.50
+
+"  Delivered ".strip().lower()        # 'delivered'
+"a,b,c".split(",")                    # ['a', 'b', 'c']
+"-".join(["2025", "03", "15"])        # '2025-03-15'
+"priya@mail.com".split("@")[1]        # 'mail.com'
+"Epic sadface: Username is required".startswith("Epic sadface")  # True</pre>
+
+<h2>Useful standard library pieces</h2>
+<pre class="code">from collections import Counter
+codes = [200, 200, 404, 500, 200, 404]
+Counter(codes)                  # Counter({200: 3, 404: 2, 500: 1})
+Counter(codes).most_common(1)   # [(200, 3)]
+
+import re
+re.fullmatch(r"[6-9]\d{9}", "9876543210") is not None   # valid Indian mobile
+
+from datetime import date, timedelta
+date.today() + timedelta(days=7)   # a date one week from now, for test data</pre>
+
+<div class="callout interview"><b>Interview questions</b>
+<p><b>List vs tuple?</b> Lists can change; tuples can't. Tuples are hashable, so they can be dictionary keys, and they suit fixed data such as Selenium locators <code>(By.ID, "x")</code>.</p>
+<p><b>What is the mutable default argument problem?</b> Default values are created once, when the function is defined. A list default is therefore shared across calls. Use <code>None</code> and create the list inside.</p>
+<p><b><code>is</code> vs <code>==</code>?</b> <code>==</code> compares values; <code>is</code> checks whether two names point to the same object. Use <code>is</code> only with <code>None</code>.</p>
+<p><b>Shallow vs deep copy?</b> <code>copy.copy</code> copies the outer object but shares nested objects. <code>copy.deepcopy</code> copies everything. This matters when you tweak one test's payload built from a shared template.</p>
+</div>
+
+<h2>Exercises</h2>
+<p>Write each function in one file, then paste the answer's <code>assert</code> lines below it to check your work.</p>
+<div class="ex" data-id="w03-l1-e1"><p class="q">Write <code>count_status_codes(lines)</code>. It takes log lines like <code>"GET /cart 200 35ms"</code> and returns a dict of status code → count.</p>
+<details class="ans"><summary>Show answer</summary><pre class="code" data-verify="w03-l1">from collections import Counter
+
+def count_status_codes(lines):
+    return dict(Counter(int(line.split()[2]) for line in lines))
+
+logs = ["GET /cart 200 35ms", "POST /pay 500 900ms", "GET /home 200 12ms"]
+assert count_status_codes(logs) == {200: 2, 500: 1}
+assert count_status_codes([]) == {}</pre></details></div>
+
+<div class="ex" data-id="w03-l1-e2"><p class="q">Write <code>find_duplicates(items)</code>. It returns each value that appears more than once, in the order it first appeared.</p>
+<details class="ans"><summary>Show answer</summary><pre class="code" data-verify="w03-l1">def find_duplicates(items):
+    seen, dupes = set(), []
+    for item in items:
+        if item in seen and item not in dupes:
+            dupes.append(item)
+        seen.add(item)
+    return dupes
+
+assert find_duplicates(["a", "b", "a", "c", "b", "a"]) == ["a", "b"]
+assert find_duplicates([1, 2, 3]) == []</pre><p>A set gives O(1) lookups, so this stays fast even for long lists. Interviewers like it when you mention that.</p></details></div>
+
+<div class="ex" data-id="w03-l1-e3"><p class="q">Given a list of test results (like <code>results</code> above), write <code>summary(results)</code>. It returns <code>{"total": n, "passed": n, "failed": n, "pass_rate": percent rounded to 1 decimal, "slowest": name}</code>.</p>
+<details class="ans"><summary>Show answer</summary><pre class="code" data-verify="w03-l1">def summary(results):
+    total = len(results)
+    passed = sum(1 for r in results if r["status"] == "passed")
+    return {
+        "total": total,
+        "passed": passed,
+        "failed": total - passed,
+        "pass_rate": round(100 * passed / total, 1) if total else 0.0,
+        "slowest": max(results, key=lambda r: r["secs"])["name"] if results else None,
+    }
+
+results = [
+    {"name": "test_login", "status": "passed", "secs": 3.2},
+    {"name": "test_checkout", "status": "failed", "secs": 9.8},
+    {"name": "test_search", "status": "passed", "secs": 1.1},
+]
+assert summary(results) == {"total": 3, "passed": 2, "failed": 1, "pass_rate": 66.7, "slowest": "test_checkout"}
+assert summary([])["pass_rate"] == 0.0</pre><p>Notice the empty-list case. Testers who check edge cases in their own code stand out.</p></details></div>
+
+<div class="ex" data-id="w03-l1-e4"><p class="q">Write <code>mask_email(email)</code>, which keeps the first character and the domain: <code>"priya.nair@mail.com"</code> → <code>"p***@mail.com"</code>. Return <code>None</code> for <code>None</code>, and raise <code>ValueError</code> if there is no "@".</p>
+<details class="ans"><summary>Show answer</summary><pre class="code" data-verify="w03-l1">def mask_email(email):
+    if email is None:
+        return None
+    if "@" not in email:
+        raise ValueError(f"not an email: {email!r}")
+    local, domain = email.split("@", 1)
+    return f"{local[:1]}***@{domain}"
+
+assert mask_email("priya.nair@mail.com") == "p***@mail.com"
+assert mask_email(None) is None
+try:
+    mask_email("bad")
+    raise AssertionError("expected ValueError")
+except ValueError:
+    pass</pre></details></div>
+
+<div class="ex" data-id="w03-l1-e5"><p class="q">Write <code>build_config(env, **overrides)</code>. It starts from defaults <code>{"browser": "chrome", "headless": True, "timeout": 10}</code>, adds <code>base_url</code> from <code>{"qa": "https://qa.shop.test", "uat": "https://uat.shop.test"}</code>, then applies the overrides. Unknown env → <code>ValueError</code>.</p>
+<details class="ans"><summary>Show answer</summary><pre class="code" data-verify="w03-l1">URLS = {"qa": "https://qa.shop.test", "uat": "https://uat.shop.test"}
+DEFAULTS = {"browser": "chrome", "headless": True, "timeout": 10}
+
+def build_config(env, **overrides):
+    if env not in URLS:
+        raise ValueError(f"unknown env {env!r}; use one of {sorted(URLS)}")
+    return {**DEFAULTS, "base_url": URLS[env], **overrides}
+
+cfg = build_config("uat", headless=False)
+assert cfg == {"browser": "chrome", "headless": False, "timeout": 10, "base_url": "https://uat.shop.test"}
+assert DEFAULTS["headless"] is True    # the defaults were not modified</pre></details></div>
+
+<div class="ex" data-id="w03-l1-e6"><p class="q">Write <code>compare_lists(expected, actual)</code>. It returns <code>{"missing": [...], "unexpected": [...]}</code>, both sorted. This is the helper you'd use to check a product list on a page.</p>
+<details class="ans"><summary>Show answer</summary><pre class="code" data-verify="w03-l1">def compare_lists(expected, actual):
+    e, a = set(expected), set(actual)
+    return {"missing": sorted(e - a), "unexpected": sorted(a - e)}
+
+assert compare_lists(["A", "B", "C"], ["C", "D", "A"]) == {"missing": ["B"], "unexpected": ["D"]}</pre></details></div>
+</section>
+
+<!-- ===================================================== L2 ===================================================== -->
+<section class="lesson" id="w03-l2">
+<p>"Explain the OOP concepts used in your framework" is one of the most common questions in Indian QA and SDET interviews. This lesson teaches OOP <b>through a test framework</b>, so that the answer comes from code you have actually written.</p>
+
+<h2>Classes and objects</h2>
+<p>A class is a blueprint; an object is one thing built from it. <code>__init__</code> runs when an object is created, and <code>self</code> is that object.</p>
+<pre class="code">class TestCase:
+    def __init__(self, tc_id, title, priority="P3"):
+        self.tc_id = tc_id          # instance attributes: one copy per object
+        self.title = title
+        self.priority = priority
+
+    def is_blocker(self):
+        return self.priority == "P1"
+
+    def __repr__(self):             # what print() and the debugger show
+        return f"TestCase({self.tc_id!r}, {self.priority})"
+
+tc = TestCase("TC-101", "Login with valid user", "P1")
+tc.is_blocker()    # True
+print(tc)          # TestCase('TC-101', P1)</pre>
+
+<h2>A fake driver, so you can practise without a browser</h2>
+<p>This class pretends to be Selenium. It records every action it receives. You'll use it to build Page Objects today, and next week you'll swap in the real driver without changing the pages.</p>
+<pre class="code" data-verify="w03-l2">class FakeElement:
+    def __init__(self, driver, locator):
+        self.driver, self.locator = driver, locator
+
+    def click(self):
+        self.driver.actions.append(("click", self.locator))
+
+    def send_keys(self, text):
+        self.driver.actions.append(("type", self.locator, text))
+
+    @property
+    def text(self):
+        return self.driver.texts.get(self.locator, "")
+
+
+class FakeDriver:
+    def __init__(self, texts=None):
+        self.actions = []
+        self.texts = texts or {}
+        self.current_url = ""
+
+    def get(self, url):
+        self.current_url = url
+        self.actions.append(("open", url))
+
+    def find_element(self, by, value):
+        return FakeElement(self, (by, value))</pre>
+
+<h2>The four pillars, in a framework</h2>
+<div class="tablewrap"><table class="ref">
+<tr><th>Pillar</th><th>Meaning</th><th>Where it appears in a test framework</th></tr>
+<tr><td>Encapsulation</td><td>Keep data and the code that uses it together; hide the internals</td><td>Locators are private inside each Page class; tests call <code>login()</code> and never touch locators</td></tr>
+<tr><td>Inheritance</td><td>A child class reuses and extends a parent</td><td><code>LoginPage(BasePage)</code> inherits <code>open()</code>, <code>click()</code>, <code>type()</code>, waits</td></tr>
+<tr><td>Polymorphism</td><td>Same method name, different behaviour</td><td>Each page has <code>is_loaded()</code>; a driver factory returns Chrome or Firefox and tests treat them the same</td></tr>
+<tr><td>Abstraction</td><td>Expose what something does, not how</td><td><code>checkout.place_order(user)</code> hides 15 clicks; an abstract <code>BasePage.is_loaded()</code> that every page must implement</td></tr>
+</table></div>
+
+<h3>Inheritance: BasePage and LoginPage</h3>
+<pre class="code" data-verify="w03-l2">from abc import ABC, abstractmethod
+
+class BasePage(ABC):
+    BASE_URL = "https://www.saucedemo.com"      # class attribute: shared by all pages
+    PATH = "/"
+
+    def __init__(self, driver):
+        self.driver = driver
+
+    def open(self):
+        self.driver.get(self.BASE_URL + self.PATH)
+        return self                              # lets you chain: LoginPage(d).open().login(...)
+
+    def click(self, locator):
+        self.driver.find_element(*locator).click()
+
+    def type(self, locator, text):
+        self.driver.find_element(*locator).send_keys(text)
+
+    def text_of(self, locator):
+        return self.driver.find_element(*locator).text
+
+    @abstractmethod
+    def is_loaded(self):
+        """Every page must say how to recognise itself."""
+
+
+class LoginPage(BasePage):
+    PATH = "/"
+    _USERNAME = ("id", "user-name")             # leading underscore = private by convention
+    _PASSWORD = ("id", "password")
+    _SUBMIT   = ("id", "login-button")
+    _ERROR    = ("css selector", "[data-test='error']")
+
+    def login(self, username, password):
+        self.type(self._USERNAME, username)
+        self.type(self._PASSWORD, password)
+        self.click(self._SUBMIT)
+
+    def error_message(self):
+        return self.text_of(self._ERROR)
+
+    def is_loaded(self):
+        return self.driver.current_url.endswith(self.PATH)
+
+
+driver = FakeDriver()
+LoginPage(driver).open().login("standard_user", "secret_sauce")
+assert driver.actions[0] == ("open", "https://www.saucedemo.com/")
+assert driver.actions[-1] == ("click", ("id", "login-button"))</pre>
+<p>Trying <code>BasePage(driver)</code> on its own raises <code>TypeError</code>, because an abstract class can't be created. That is abstraction enforced by the language.</p>
+
+<h3>super(): extending instead of replacing</h3>
+<pre class="code">class AdminLoginPage(LoginPage):
+    PATH = "/admin"
+
+    def login(self, username, password):
+        super().login(username, password)        # run the parent's steps first
+        self.click(("id", "accept-terms"))       # then add one more</pre>
+
+<h3>Composition: a flow built from pages</h3>
+<p>Inheritance means "is a" (LoginPage <i>is a</i> BasePage). Composition means "has a": a checkout flow <i>has</i> several pages. Prefer composition for business flows.</p>
+<pre class="code">class CheckoutFlow:
+    def __init__(self, driver):
+        self.login_page = LoginPage(driver)
+        self.inventory = InventoryPage(driver)
+        self.cart = CartPage(driver)
+
+    def buy(self, user, password, product):
+        self.login_page.open().login(user, password)
+        self.inventory.add_to_cart(product)
+        self.cart.open().checkout()</pre>
+
+<h3>classmethod and staticmethod</h3>
+<pre class="code">class User:
+    def __init__(self, username, password, role="customer"):
+        self.username, self.password, self.role = username, password, role
+
+    @classmethod
+    def from_dict(cls, data):                 # alternative constructor, e.g. from JSON
+        return cls(data["username"], data["password"], data.get("role", "customer"))
+
+    @staticmethod
+    def is_strong(password):                  # utility; needs neither cls nor self
+        return len(password) &gt;= 8 and any(c.isdigit() for c in password)</pre>
+
+<div class="callout interview"><b>"Explain the OOP concepts in your framework": a model answer</b>
+<p>"Our framework uses the Page Object Model. <b>Encapsulation</b>: each page class keeps its locators private and exposes actions like <code>login()</code>, so a UI change means one fix in one place. <b>Inheritance</b>: every page extends a BasePage that holds the common driver actions and explicit waits. <b>Abstraction</b>: tests read like business steps, such as <code>checkout.place_order()</code>, and BasePage declares an abstract <code>is_loaded()</code> that every page must implement. <b>Polymorphism</b>: a driver factory returns Chrome, Firefox or a remote Grid driver, and the tests use them the same way. Each page also overrides <code>is_loaded()</code> with its own check."</p>
+<p><b>Follow-ups:</b> overloading vs overriding (Python has no true overloading: use default arguments; overriding is a child redefining a parent method). Abstract class vs interface (Python uses ABCs for both). Is-a vs has-a (inheritance vs composition).</p>
+</div>
+
+<h2>Exercises</h2>
+<p>Put <code>FakeDriver</code>, <code>FakeElement</code>, <code>BasePage</code> and <code>LoginPage</code> in one file, then add your answers below them.</p>
+<div class="ex" data-id="w03-l2-e1"><p class="q">Write <code>InventoryPage(BasePage)</code> with <code>PATH = "/inventory.html"</code>, a method <code>add_to_cart(slug)</code> that clicks the CSS locator <code>[data-test='add-to-cart-{slug}']</code>, a method <code>cart_count()</code> that returns the text of <code>.shopping_cart_badge</code> as an int (0 if empty), and <code>is_loaded()</code>.</p>
+<details class="ans"><summary>Show answer</summary><pre class="code" data-verify="w03-l2">class InventoryPage(BasePage):
+    PATH = "/inventory.html"
+    _BADGE = ("css selector", ".shopping_cart_badge")
+
+    def add_to_cart(self, slug):
+        self.click(("css selector", f"[data-test='add-to-cart-{slug}']"))
+
+    def cart_count(self):
+        text = self.text_of(self._BADGE)
+        return int(text) if text else 0
+
+    def is_loaded(self):
+        return self.driver.current_url.endswith(self.PATH)
+
+d = FakeDriver(texts={("css selector", ".shopping_cart_badge"): "2"})
+page = InventoryPage(d).open()
+page.add_to_cart("sauce-labs-backpack")
+assert d.actions[-1] == ("click", ("css selector", "[data-test='add-to-cart-sauce-labs-backpack']"))
+assert page.cart_count() == 2 and page.is_loaded()
+assert InventoryPage(FakeDriver()).cart_count() == 0</pre></details></div>
+
+<div class="ex" data-id="w03-l2-e2"><p class="q">Show that <code>BasePage</code> can't be created directly, and that a subclass without <code>is_loaded()</code> can't be created either.</p>
+<details class="ans"><summary>Show answer</summary><pre class="code" data-verify="w03-l2">class BrokenPage(BasePage):
+    pass
+
+for cls in (BasePage, BrokenPage):
+    try:
+        cls(FakeDriver())
+        raise AssertionError(f"{cls.__name__} should not be creatable")
+    except TypeError:
+        pass</pre></details></div>
+
+<div class="ex" data-id="w03-l2-e3"><p class="q">Write a <code>User</code> class with <code>from_dict</code> (role defaults to "customer") and a static <code>is_strong(password)</code> (8+ characters and at least one digit). Then build three users from a list of dicts with a comprehension.</p>
+<details class="ans"><summary>Show answer</summary><pre class="code" data-verify="w03-l2">class User:
+    def __init__(self, username, password, role="customer"):
+        self.username, self.password, self.role = username, password, role
+
+    @classmethod
+    def from_dict(cls, data):
+        return cls(data["username"], data["password"], data.get("role", "customer"))
+
+    @staticmethod
+    def is_strong(password):
+        return len(password) &gt;= 8 and any(c.isdigit() for c in password)
+
+rows = [{"username": "a", "password": "abc12345"},
+        {"username": "b", "password": "short", "role": "admin"},
+        {"username": "c", "password": "longbutnodigits"}]
+users = [User.from_dict(r) for r in rows]
+assert [u.role for u in users] == ["customer", "admin", "customer"]
+assert [User.is_strong(u.password) for u in users] == [True, False, False]</pre></details></div>
+
+<div class="ex" data-id="w03-l2-e4"><p class="q">Write a <code>TestRun</code> class with a <b>class attribute</b> <code>count</code> that goes up every time a run is created, and an instance method <code>record(name, status)</code> that stores results. Show that <code>count</code> is shared but results aren't.</p>
+<details class="ans"><summary>Show answer</summary><pre class="code" data-verify="w03-l2">class TestRun:
+    count = 0
+
+    def __init__(self, suite):
+        TestRun.count += 1
+        self.suite = suite
+        self.results = {}            # created per object: NOT a class attribute
+
+    def record(self, name, status):
+        self.results[name] = status
+
+r1, r2 = TestRun("smoke"), TestRun("regression")
+r1.record("test_login", "passed")
+assert TestRun.count == 2
+assert r2.results == {}</pre><p>If <code>results = {}</code> were a class attribute, every run would share one dict. That's the same trap as the mutable default argument.</p></details></div>
+</section>
+
+<!-- ===================================================== L3 ===================================================== -->
+<section class="lesson" id="w03-l3">
+<p>Real frameworks read test data from files, load settings per environment, fail with clear messages, and log what happened. This lesson covers those everyday building blocks.</p>
+
+<h2>Paths and files</h2>
+<p>Use <code>pathlib</code> and build paths relative to the file, never to wherever you happen to run the command from:</p>
+<pre class="code">from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent
+DATA = ROOT / "data"
+
+text = (DATA / "notes.txt").read_text(encoding="utf-8")
+(ROOT / "reports").mkdir(exist_ok=True)
+for f in DATA.glob("*.json"):
+    print(f.name)</pre>
+<p><code>with</code> closes a file even if an error happens part-way through:</p>
+<pre class="code">with open(DATA / "log.txt", encoding="utf-8") as f:
+    for line in f:
+        ...</pre>
+
+<h2>CSV test data</h2>
+<pre class="code">import csv
+
+# data/users.csv
+# username,password,expected
+# standard_user,secret_sauce,success
+# locked_out_user,secret_sauce,locked
+
+with open(DATA / "users.csv", newline="", encoding="utf-8") as f:
+    users = list(csv.DictReader(f))     # [{'username': 'standard_user', ...}, ...]</pre>
+
+<h2>JSON: config files and API payloads</h2>
+<pre class="code">import json
+
+config = json.loads((ROOT / "config.json").read_text(encoding="utf-8"))
+
+payload = {"firstname": "Neer", "totalprice": 111, "depositpaid": True}
+text = json.dumps(payload, indent=2)                 # dict → JSON string
+(ROOT / "reports" / "run.json").write_text(text, encoding="utf-8")</pre>
+<p>JSON <code>true/false/null</code> become Python <code>True/False/None</code>.</p>
+
+<h2>Secrets and environment variables</h2>
+<p>Passwords and tokens never go in code or in Git. Read them from environment variables:</p>
+<pre class="code">import os
+
+env = os.getenv("TEST_ENV", "qa")             # default if not set
+api_token = os.environ["API_TOKEN"]           # KeyError if missing: fail fast</pre>
+<pre class="code"># PowerShell, for the current session only
+$env:TEST_ENV = "uat"
+$env:API_TOKEN = "paste-your-token"</pre>
+<p>Teams often keep local values in a <code>.env</code> file (loaded with the <code>python-dotenv</code> package) and add <code>.env</code> to <code>.gitignore</code>. In CI, the values come from the pipeline's secret store.</p>
+
+<h2>Exceptions</h2>
+<pre class="code">try:
+    price = float(raw_price)
+except ValueError as e:              # catch the specific error you expect
+    raise ValueError(f"price {raw_price!r} is not a number") from e
+else:
+    print("parsed fine")             # runs only if no exception
+finally:
+    print("always runs")             # cleanup: close, quit, delete</pre>
+<div class="callout warn"><b>Don't swallow errors</b>A bare <code>except: pass</code> hides real failures and turns a red test green. In test code, an unexpected error should fail the test loudly.</div>
+<p>Custom exceptions make failures self-explanatory:</p>
+<pre class="code">class DataCheckFailed(AssertionError):
+    """Raised when a data validation query returns failing rows."""
+
+raise DataCheckFailed("orphan_order_items: 1 row(s): [(30, 9999)]")</pre>
+
+<h2>Logging instead of print</h2>
+<pre class="code">import logging
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)-7s %(name)s: %(message)s",
+)
+log = logging.getLogger("framework")
+
+log.info("Opening %s", url)
+log.warning("Retrying click on %s", locator)
+log.error("Checkout failed for order %s", order_id)</pre>
+<p>Logs have levels and timestamps, can go to a file, and pytest captures them and shows them only for failing tests.</p>
+
+<h2>Packaging your project</h2>
+<pre class="code">pip install pytest selenium requests
+pip freeze &gt; requirements.txt          # pin exact versions for teammates and CI
+pip install -r requirements.txt        # recreate the same environment elsewhere</pre>
+
+<div class="callout interview"><b>Interview questions</b>
+<p><b>How do you handle test data?</b> External files (CSV, JSON, Excel) for data-driven tests; generated data for unique values; API or SQL setup for complex state. Secrets come from environment variables or a vault, never from the repo.</p>
+<p><b>How do you manage multiple environments?</b> A config file per environment, or one file with sections, chosen by an environment variable or a pytest command-line option, e.g. <code>--env uat</code>.</p>
+<p><b>try/except/else/finally: when does each block run?</b> try always; except on a matching error; else only if there was no error; finally always.</p>
+</div>
+
+<h2>Exercises</h2>
+<div class="ex" data-id="w03-l3-e1"><p class="q">Write <code>load_users(path)</code>, which reads a CSV with columns <code>username,password,expected</code> and returns a list of dicts. Test it with a temporary file.</p>
+<details class="ans"><summary>Show answer</summary><pre class="code" data-verify="w03-l3">import csv, tempfile
+from pathlib import Path
+
+def load_users(path):
+    with open(path, newline="", encoding="utf-8") as f:
+        return list(csv.DictReader(f))
+
+with tempfile.TemporaryDirectory() as tmp:
+    p = Path(tmp) / "users.csv"
+    p.write_text("username,password,expected\nstandard_user,secret_sauce,success\nlocked_out_user,secret_sauce,locked\n", encoding="utf-8")
+    users = load_users(p)
+assert users[1] == {"username": "locked_out_user", "password": "secret_sauce", "expected": "locked"}</pre></details></div>
+
+<div class="ex" data-id="w03-l3-e2"><p class="q">Write <code>load_config(path, env)</code>. The JSON file holds <code>{"qa": {...}, "uat": {...}}</code>. Return the section for <code>env</code>, but if the environment variable <code>BASE_URL</code> is set, it overrides <code>base_url</code>. Unknown env → <code>KeyError</code> with a helpful message.</p>
+<details class="ans"><summary>Show answer</summary><pre class="code" data-verify="w03-l3">import json, os, tempfile
+from pathlib import Path
+
+def load_config(path, env):
+    data = json.loads(Path(path).read_text(encoding="utf-8"))
+    if env not in data:
+        raise KeyError(f"env {env!r} not in config; choose from {sorted(data)}")
+    cfg = dict(data[env])                       # copy, so the loaded data isn't changed
+    if os.getenv("BASE_URL"):
+        cfg["base_url"] = os.environ["BASE_URL"]
+    return cfg
+
+with tempfile.TemporaryDirectory() as tmp:
+    p = Path(tmp) / "config.json"
+    p.write_text(json.dumps({"qa": {"base_url": "https://qa.shop.test", "timeout": 10}}), encoding="utf-8")
+    os.environ.pop("BASE_URL", None)
+    assert load_config(p, "qa")["base_url"] == "https://qa.shop.test"
+    os.environ["BASE_URL"] = "http://localhost:8000"
+    assert load_config(p, "qa")["base_url"] == "http://localhost:8000"
+    os.environ.pop("BASE_URL")
+    try:
+        load_config(p, "prod"); raise AssertionError("expected KeyError")
+    except KeyError:
+        pass</pre></details></div>
+
+<div class="ex" data-id="w03-l3-e3"><p class="q">Write <code>retry(func, attempts=3, delay=0.5, exceptions=(Exception,))</code>. It calls <code>func()</code> and retries on the given exceptions. If every attempt fails, re-raise the last error. (Real use: an API call during a slow deployment. Never use it to hide a genuine bug.)</p>
+<details class="ans"><summary>Show answer</summary><pre class="code" data-verify="w03-l3">import time
+
+def retry(func, attempts=3, delay=0.5, exceptions=(Exception,)):
+    for attempt in range(1, attempts + 1):
+        try:
+            return func()
+        except exceptions:
+            if attempt == attempts:
+                raise
+            time.sleep(delay)
+
+calls = {"n": 0}
+def flaky():
+    calls["n"] += 1
+    if calls["n"] &lt; 3:
+        raise ConnectionError("not yet")
+    return "ok"
+
+assert retry(flaky, delay=0) == "ok" and calls["n"] == 3
+try:
+    retry(lambda: 1 / 0, attempts=2, delay=0, exceptions=(ZeroDivisionError,))
+    raise AssertionError("expected ZeroDivisionError")
+except ZeroDivisionError:
+    pass</pre></details></div>
+
+<div class="ex" data-id="w03-l3-e4"><p class="q">Write <code>save_report(results, path)</code>, which writes a JSON file containing the <code>summary()</code> from Lesson 1 plus the full results list. Read it back and check one value.</p>
+<details class="ans"><summary>Show answer</summary><pre class="code" data-verify="w03-l3">import json, tempfile
+from pathlib import Path
+
+def save_report(results, path):
+    passed = sum(r["status"] == "passed" for r in results)
+    report = {"summary": {"total": len(results), "passed": passed}, "results": results}
+    Path(path).write_text(json.dumps(report, indent=2), encoding="utf-8")
+
+with tempfile.TemporaryDirectory() as tmp:
+    out = Path(tmp) / "report.json"
+    save_report([{"name": "t1", "status": "passed"}, {"name": "t2", "status": "failed"}], out)
+    assert json.loads(out.read_text(encoding="utf-8"))["summary"] == {"total": 2, "passed": 1}</pre></details></div>
+</section>
+
+<!-- ===================================================== L4 ===================================================== -->
+<section class="lesson" id="w03-l4">
+<p>pytest is the test runner behind most Python automation frameworks. It's simple to start with, and its fixtures are powerful enough to run a large suite. This lesson covers everything you'll be asked about it.</p>
+
+<h2>Your first tests</h2>
+<pre class="code"># utils.py
+def mask_email(email):
+    if email is None:
+        return None
+    if "@" not in email:
+        raise ValueError(f"not an email: {email!r}")
+    local, domain = email.split("@", 1)
+    return f"{local[:1]}***@{domain}"</pre>
+<pre class="code"># test_utils.py
+import pytest
+from utils import mask_email
+
+def test_masks_local_part():
+    assert mask_email("priya.nair@mail.com") == "p***@mail.com"
+
+def test_none_passes_through():
+    assert mask_email(None) is None
+
+def test_rejects_text_without_at():
+    with pytest.raises(ValueError, match="not an email"):
+        mask_email("hello")</pre>
+<pre class="code">pytest            # find and run all tests
+pytest -v         # one line per test
+pytest -k mask    # only tests whose name contains "mask"
+pytest -x         # stop at the first failure
+pytest --lf       # re-run only the tests that failed last time
+pytest -s         # show print() output</pre>
+<p><b>Discovery rules:</b> files named <code>test_*.py</code> or <code>*_test.py</code>, functions named <code>test_*</code>, classes named <code>Test*</code> (with no <code>__init__</code>). Plain <code>assert</code> is enough: when it fails, pytest shows both values.</p>
+
+<h2>Parametrize: one test, many inputs</h2>
+<pre class="code">@pytest.mark.parametrize(
+    "email, expected",
+    [
+        ("priya.nair@mail.com", "p***@mail.com"),
+        ("a@b.co", "a***@b.co"),
+        ("@mail.com", "***@mail.com"),          # edge case: empty local part
+    ],
+    ids=["normal", "short", "empty-local"],
+)
+def test_mask_email(email, expected):
+    assert mask_email(email) == expected</pre>
+<p>Each row is reported as a separate test, e.g. <code>test_mask_email[short]</code>. This is pytest's data-driven testing.</p>
+
+<h2>Fixtures: setup and teardown done properly</h2>
+<p>A fixture prepares something a test needs. The test asks for it by naming it as a parameter. Code after <code>yield</code> is the teardown, and it runs even if the test fails.</p>
+<pre class="code" data-verify="w03-l4-fixtures"># test_fixtures_demo.py
+import pytest
+
+@pytest.fixture(scope="session")
+def browser():
+    print("\n[session] start browser")
+    yield "chrome"
+    print("\n[session] quit browser")
+
+@pytest.fixture
+def logged_in(browser):                     # fixtures can use other fixtures
+    print("[function] log in")
+    yield {"browser": browser, "user": "qa1"}
+    print("[function] log out")
+
+def test_cart(logged_in):
+    assert logged_in["user"] == "qa1"
+
+def test_orders(logged_in):
+    assert logged_in["browser"] == "chrome"</pre>
+<p>Run <code>pytest -s -q test_fixtures_demo.py</code> and read the output: the browser starts <b>once</b>, and login and logout happen <b>around each test</b>.</p>
+<pre class="code">[session] start browser
+[function] log in
+.[function] log out
+[function] log in
+.[function] log out
+
+[session] quit browser</pre>
+<div class="tablewrap"><table class="ref">
+<tr><th>Scope</th><th>Created once per…</th><th>Typical use</th></tr>
+<tr><td><code>function</code> (default)</td><td>test</td><td>fresh page, test data that a test modifies</td></tr>
+<tr><td><code>class</code></td><td>test class</td><td>shared state within a group</td></tr>
+<tr><td><code>module</code></td><td>file</td><td>an API client for one file's tests</td></tr>
+<tr><td><code>session</code></td><td>whole run</td><td>database connection, config, an auth token</td></tr>
+</table></div>
+
+<h3>conftest.py</h3>
+<p>Put shared fixtures in <code>conftest.py</code>. pytest loads it automatically, and every test in that folder and below can use its fixtures without importing anything. Large projects have one at the root and more in subfolders.</p>
+
+<h3>Built-in fixtures worth knowing</h3>
+<pre class="code">def test_writes_report(tmp_path):              # a fresh temporary folder per test
+    f = tmp_path / "r.json"
+    f.write_text("{}")
+    assert f.exists()
+
+def test_uses_env(monkeypatch):                # change env vars or attributes for one test
+    monkeypatch.setenv("TEST_ENV", "uat")
+    import os
+    assert os.environ["TEST_ENV"] == "uat"     # restored automatically afterwards</pre>
+
+<h2>Markers: grouping and controlling tests</h2>
+<pre class="code"># pytest.ini
+[pytest]
+markers =
+    smoke: fast checks run on every deploy
+    regression: full suite, nightly
+addopts = -ra</pre>
+<pre class="code">@pytest.mark.smoke
+def test_home_page_loads(): ...
+
+@pytest.mark.skip(reason="feature flag off in QA")
+def test_new_banner(): ...
+
+@pytest.mark.skipif(sys.platform == "darwin", reason="Windows-only file dialog")
+def test_upload_dialog(): ...
+
+@pytest.mark.xfail(reason="DEF-512 rounding bug", strict=True)
+def test_tax_rounding(): ...</pre>
+<pre class="code">pytest -m smoke                    # only smoke
+pytest -m "regression and not slow"</pre>
+<p>Register your markers in <code>pytest.ini</code>; otherwise pytest warns about typos. <code>xfail(strict=True)</code> means "this is expected to fail because of a known bug". Once the bug is fixed and the test passes, the run fails, which reminds you to remove the marker.</p>
+
+<div class="callout interview"><b>Interview questions</b>
+<p><b>What is a fixture? How is it different from setup/teardown methods?</b> A fixture is a reusable function that provides a resource, injected by name, with a scope, and with teardown after <code>yield</code>. Unlike xUnit setUp methods, fixtures are modular, can depend on each other, and can be shared through conftest.py.</p>
+<p><b>What is conftest.py?</b> A file pytest loads automatically, holding fixtures and hooks shared by all tests in its folder tree.</p>
+<p><b>How do you run only some tests?</b> <code>-k</code> by name, <code>-m</code> by marker, by path, or <code>--lf</code> for the last failures.</p>
+<p><b>skip vs xfail?</b> skip doesn't run the test. xfail runs it and expects it to fail, reporting XFAIL, or XPASS if it unexpectedly passes.</p>
+<p><b>pytest vs unittest?</b> pytest uses plain asserts with detailed output, fixtures, parametrize, a large plugin ecosystem (xdist, allure, rerunfailures, html), and it can also run unittest tests.</p>
+</div>
+
+<h2>Exercises</h2>
+<div class="ex" data-id="w03-l4-e1"><p class="q">Write parametrized tests for <code>compare_lists</code> from Lesson 1 with at least four cases, each with a readable id: identical lists, one missing, one unexpected, and both empty.</p>
+<details class="ans"><summary>Show answer</summary><pre class="code" data-verify="w03-l4-e1">import pytest
+
+def compare_lists(expected, actual):
+    e, a = set(expected), set(actual)
+    return {"missing": sorted(e - a), "unexpected": sorted(a - e)}
+
+@pytest.mark.parametrize("expected, actual, result", [
+    (["A", "B"], ["B", "A"], {"missing": [], "unexpected": []}),
+    (["A", "B"], ["A"],      {"missing": ["B"], "unexpected": []}),
+    (["A"],      ["A", "C"], {"missing": [], "unexpected": ["C"]}),
+    ([],         [],         {"missing": [], "unexpected": []}),
+], ids=["identical", "missing", "unexpected", "empty"])
+def test_compare_lists(expected, actual, result):
+    assert compare_lists(expected, actual) == result</pre></details></div>
+
+<div class="ex" data-id="w03-l4-e2"><p class="q">Write a fixture <code>users_csv</code> that uses <code>tmp_path</code> to create a CSV with two users and returns its path. Use it in a test of <code>load_users</code> from Lesson 3.</p>
+<details class="ans"><summary>Show answer</summary><pre class="code" data-verify="w03-l4-e2">import csv
+import pytest
+
+def load_users(path):
+    with open(path, newline="", encoding="utf-8") as f:
+        return list(csv.DictReader(f))
+
+@pytest.fixture
+def users_csv(tmp_path):
+    p = tmp_path / "users.csv"
+    p.write_text("username,password,expected\nstandard_user,secret_sauce,success\nlocked_out_user,secret_sauce,locked\n", encoding="utf-8")
+    return p
+
+def test_load_users_reads_all_rows(users_csv):
+    users = load_users(users_csv)
+    assert [u["username"] for u in users] == ["standard_user", "locked_out_user"]</pre></details></div>
+
+<div class="ex" data-id="w03-l4-e3"><p class="q">Create a <code>pytest.ini</code> that registers <code>smoke</code> and <code>regression</code> markers. Write three tests, two of them smoke, and show the command that runs only the smoke tests.</p>
+<details class="ans"><summary>Show answer</summary><pre class="code"># pytest.ini
+[pytest]
+markers =
+    smoke: fast checks on every deploy
+    regression: full nightly suite</pre><pre class="code" data-verify="w03-l4-e3">import pytest
+
+@pytest.mark.smoke
+def test_login_page_title(): assert True
+
+@pytest.mark.smoke
+def test_api_health(): assert True
+
+@pytest.mark.regression
+def test_full_checkout(): assert True</pre><pre class="code">pytest -m smoke -v      # 2 selected, 1 deselected</pre></details></div>
+
+<div class="ex" data-id="w03-l4-e4"><p class="q">A test fails because the API returns 500 (bug DEF-601). Mark it so the run stays green while the bug is open, but turns red as soon as the bug is fixed.</p>
+<details class="ans"><summary>Show answer</summary><pre class="code">@pytest.mark.xfail(reason="DEF-601: /orders returns 500 for empty cart", strict=True)
+def test_empty_cart_order_returns_400():
+    ...</pre><p>Without <code>strict=True</code>, a fixed bug shows up as XPASS and nobody notices. Teams that track known failures well use strict.</p></details></div>
+
+<div class="ex" data-id="w03-l4-e5"><p class="q">Predict the output of <code>pytest -s -q</code> for the fixtures demo above if <code>browser</code> had <code>scope="function"</code> instead of "session". Then run it and check.</p>
+<details class="ans"><summary>Show answer</summary><p>The browser now starts and quits around <b>each</b> test: start browser, log in, test, log out, quit browser, and then the same again for the second test. That's twice as many browser launches, which is why expensive resources such as browsers and database connections usually get a wider scope, and tests that change state get function scope.</p></details></div>
+</section>
+
+<!-- ===================================================== L5 ===================================================== -->
+<section class="lesson" id="w03-l5">
+<p>Your automation work will be judged by your GitHub as much as by your resume. This lesson covers the Git you need every day, the workflow teams use, and the questions interviewers ask.</p>
+
+<h2>One-time setup</h2>
+<pre class="code">git config --global user.name "Neer Agrawal"
+git config --global user.email "the-email-on-your-github-account"
+git config --global init.defaultBranch main</pre>
+<p>On GitHub, turn on "Keep my email addresses private" and use the <code>noreply</code> address it gives you if you don't want your email in commits.</p>
+
+<h2>The everyday loop</h2>
+<pre class="code">git status                       # what changed?
+git add tests/test_login.py      # stage a file (git add . stages everything)
+git commit -m "Add login negative tests"
+git log --oneline -5             # recent history
+git diff                         # unstaged changes
+git diff --staged                # what you're about to commit</pre>
+<p>Three places: the <b>working folder</b> (your edits) → the <b>staging area</b> (<code>git add</code>) → the <b>repository</b> (<code>git commit</code>).</p>
+
+<h2>.gitignore for a Python test project</h2>
+<pre class="code"># .gitignore
+.venv/
+__pycache__/
+.pytest_cache/
+reports/
+allure-results/
+*.db
+.env
+.idea/
+.vscode/</pre>
+<p>Never commit virtual environments, generated reports, or secrets. If a secret is committed by mistake, deleting it in a later commit isn't enough, because it remains in the history. Rotate the secret.</p>
+
+<h2>Branches and pull requests</h2>
+<pre class="code">git switch -c feature/checkout-tests     # new branch from where you are
+# ... edit, add, commit ...
+git push -u origin feature/checkout-tests</pre>
+<p>On GitHub, open a <b>pull request</b> from that branch into <code>main</code>. Teammates review it, CI runs the tests, and then it's merged. Even when you work alone, use branches and PRs for your portfolio: it shows reviewers you know the workflow.</p>
+
+<h2>Getting changes from others</h2>
+<pre class="code">git fetch                  # download changes, don't touch your files
+git pull                   # fetch + merge into your current branch
+git pull --rebase          # fetch + replay your commits on top (cleaner history)</pre>
+
+<h2>Merge conflicts</h2>
+<p>When two branches change the same lines, Git stops and marks the file:</p>
+<pre class="code">&lt;&lt;&lt;&lt;&lt;&lt;&lt; HEAD
+TIMEOUT = 10
+=======
+TIMEOUT = 15
+&gt;&gt;&gt;&gt;&gt;&gt;&gt; feature/slow-env</pre>
+<p>Edit the file to the correct final version, delete the markers, then <code>git add</code> the file and <code>git commit</code> (or <code>git rebase --continue</code> during a rebase).</p>
+
+<h2>Undoing things</h2>
+<div class="tablewrap"><table class="ref">
+<tr><th>Situation</th><th>Command</th><th>Rewrites history?</th></tr>
+<tr><td>Discard my edits to a file</td><td><code>git restore file.py</code></td><td>no</td></tr>
+<tr><td>Unstage a file</td><td><code>git restore --staged file.py</code></td><td>no</td></tr>
+<tr><td>Fix the last commit message (before pushing)</td><td><code>git commit --amend</code></td><td>yes</td></tr>
+<tr><td>Undo a pushed commit safely</td><td><code>git revert &lt;sha&gt;</code></td><td>no, adds a new commit</td></tr>
+<tr><td>Move the branch back (local only)</td><td><code>git reset --hard &lt;sha&gt;</code></td><td>yes, discards work</td></tr>
+<tr><td>Park unfinished work</td><td><code>git stash</code> / <code>git stash pop</code></td><td>no</td></tr>
+</table></div>
+
+<h2>Commit messages</h2>
+<p>Write the message in the imperative mood and say why when it isn't obvious: <code>Add explicit wait for cart badge</code>, <code>Fix flaky checkout test caused by animation</code>. Avoid messages like "changes" or "final final".</p>
+
+<div class="callout interview"><b>Interview questions</b>
+<p><b>git fetch vs git pull?</b> fetch downloads without changing your branch; pull is fetch plus merge (or rebase).</p>
+<p><b>merge vs rebase?</b> merge keeps both histories and adds a merge commit. rebase replays your commits on top for a straight line. Don't rebase commits other people already have.</p>
+<p><b>reset vs revert?</b> reset moves the branch pointer and can discard commits (local use). revert creates a new commit that undoes an old one (safe on shared branches).</p>
+<p><b>How does your automation fit into the Git workflow?</b> Tests live in the repo, every PR triggers the suite in CI, and a failed run blocks the merge. (You'll build this in Week 6.)</p>
+</div>
+
+<h2>Exercises</h2>
+<p>Do these in a scratch folder. The answers are commands, so check that your terminal output matches the description.</p>
+<div class="ex" data-id="w03-l5-e1"><p class="q">Create a repo <code>qa-python</code> with your Lesson 1–4 files, a <code>.gitignore</code>, and a <code>README.md</code>. Make the first commit and push it to a new GitHub repository.</p>
+<details class="ans"><summary>Show answer</summary><pre class="code">cd qa-python
+git init
+# create .gitignore and README.md
+git add .
+git commit -m "Add Python practice and pytest tests from Week 3"
+# create an empty repo named qa-python on github.com (no README), then:
+git remote add origin https://github.com/&lt;your-username&gt;/qa-python.git
+git push -u origin main</pre><p>The first push asks you to sign in to GitHub in the browser window that Git Credential Manager opens.</p></details></div>
+
+<div class="ex" data-id="w03-l5-e2"><p class="q">Create a branch, add a new test on it, push it, and open a pull request. Merge the PR on GitHub, then update your local <code>main</code>.</p>
+<details class="ans"><summary>Show answer</summary><pre class="code">git switch -c feature/more-tests
+# add a test, then:
+git add .
+git commit -m "Add edge-case tests for mask_email"
+git push -u origin feature/more-tests
+# open the PR on GitHub, merge it, then locally:
+git switch main
+git pull
+git branch -d feature/more-tests</pre></details></div>
+
+<div class="ex" data-id="w03-l5-e3"><p class="q">Make a merge conflict on purpose: change the same line on two branches, merge one into the other, and resolve it.</p>
+<details class="ans"><summary>Show answer</summary><pre class="code">git switch -c a
+# edit line 1 of README.md to "Version A", then:
+git commit -am "A"
+git switch main
+git switch -c b
+# edit line 1 of README.md to "Version B", then:
+git commit -am "B"
+git merge a              # CONFLICT
+# edit README.md: keep the right text, delete the markers
+git add README.md
+git commit               # completes the merge</pre></details></div>
+
+<div class="ex" data-id="w03-l5-e4"><p class="q">You pushed a commit that broke the suite. Undo it on <code>main</code> without rewriting shared history.</p>
+<details class="ans"><summary>Show answer</summary><pre class="code">git log --oneline        # find the bad commit's sha
+git revert &lt;sha&gt;
+git push</pre></details></div>
+</section>
+
+<!-- ===================================================== L6 ===================================================== -->
+<section class="lesson" id="w03-l6">
+<p>This week's capstone joins Weeks 1–3: your SQL data checks become an automated pytest suite in a public GitHub repo. When you describe it in an interview, you can explain each part because you built each part.</p>
+<p><b>Result:</b> a repo called <code>sql-for-qa</code>. Running <code>pytest</code> prints <code>3 passed, 9 xfailed</code>: three checks pass, and nine checks fail on purpose, each linked to a defect ID.</p>
+
+<h2>1. Create the project</h2>
+<pre class="code">mkdir sql-for-qa; cd sql-for-qa
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install pytest
+pip freeze &gt; requirements.txt
+mkdir checks, tests</pre>
+<p>Target structure:</p>
+<pre class="code">sql-for-qa/
+├── checks/                     one .sql file per data check
+│   ├── duplicate_emails.sql
+│   └── ...
+├── tests/
+│   └── test_data_checks.py
+├── conftest.py                 the db fixture
+├── seed.sql                    the practice database
+├── pytest.ini
+├── requirements.txt
+├── .gitignore
+└── README.md</pre>
+
+<h2>2. Add the practice database</h2>
+<p>This is the same database you used in Weeks 1–2. Copy it and save it as <code>seed.sql</code> in the project root, with UTF-8 encoding:</p>
+<p><button class="btn" type="button" data-copy-seed>Copy seed.sql to clipboard</button> <span class="copy-note"></span></p>
+
+<h2>3. The fixture: conftest.py</h2>
+<pre class="code">import sqlite3
+from pathlib import Path
+
+import pytest
+
+ROOT = Path(__file__).parent
+
+
+@pytest.fixture(scope="session")
+def db():
+    """One in-memory copy of the shop database for the whole test run."""
+    conn = sqlite3.connect(":memory:")
+    conn.executescript((ROOT / "seed.sql").read_text(encoding="utf-8"))
+    yield conn
+    conn.close()</pre>
+<p>It's session-scoped because the checks only read data, so one database is enough. In a real project, this fixture would connect to the QA MySQL database using credentials from environment variables, and nothing else would change.</p>
+
+<h2>4. The checks: one file each</h2>
+<p>Create these 12 files in <code>checks/</code>. Every query returns the <b>failing rows</b>, so an empty result means PASS. You wrote most of them in Week 2.</p>
+<pre class="code">-- checks/orders_without_customer.sql
+SELECT o.order_id, o.customer_id
+FROM orders o
+LEFT JOIN customers c ON c.customer_id = o.customer_id
+WHERE c.customer_id IS NULL;</pre>
+<pre class="code">-- checks/items_without_order.sql
+SELECT oi.item_id, oi.order_id
+FROM order_items oi
+LEFT JOIN orders o ON o.order_id = oi.order_id
+WHERE o.order_id IS NULL;</pre>
+<pre class="code">-- checks/duplicate_emails.sql
+SELECT email, COUNT(*) AS times_used
+FROM customers
+WHERE email IS NOT NULL
+GROUP BY email
+HAVING COUNT(*) &gt; 1;</pre>
+<pre class="code">-- checks/missing_emails.sql
+SELECT customer_id, full_name
+FROM customers
+WHERE email IS NULL OR TRIM(email) = '';</pre>
+<pre class="code">-- checks/header_line_mismatch.sql
+SELECT o.order_id, o.total_amount,
+       COALESCE(SUM(oi.quantity * oi.unit_price), 0) AS items_total
+FROM orders o
+LEFT JOIN order_items oi ON oi.order_id = o.order_id
+GROUP BY o.order_id, o.total_amount
+HAVING ABS(o.total_amount - COALESCE(SUM(oi.quantity * oi.unit_price), 0)) &gt; 0.01;</pre>
+<pre class="code">-- checks/duplicate_order_lines.sql
+SELECT order_id, product_id, COUNT(*) AS lines
+FROM order_items
+GROUP BY order_id, product_id
+HAVING COUNT(*) &gt; 1;</pre>
+<pre class="code">-- checks/delivered_unpaid.sql
+SELECT o.order_id
+FROM orders o
+WHERE o.status = 'Delivered'
+  AND NOT EXISTS (
+    SELECT 1 FROM payments p
+    WHERE p.order_id = o.order_id AND p.status = 'Success'
+  );</pre>
+<pre class="code">-- checks/payment_mismatch.sql
+SELECT p.payment_id, p.order_id, p.amount, o.total_amount
+FROM payments p
+JOIN orders o ON o.order_id = p.order_id
+WHERE p.status = 'Success'
+  AND ABS(p.amount - o.total_amount) &gt; 0.01;</pre>
+<pre class="code">-- checks/defect_status_date_mismatch.sql
+SELECT defect_id, status, closed_on
+FROM defects
+WHERE (status = 'Closed' AND closed_on IS NULL)
+   OR (status &lt;&gt; 'Closed' AND closed_on IS NOT NULL);</pre>
+<pre class="code">-- checks/valid_order_status.sql
+SELECT order_id, status
+FROM orders
+WHERE status NOT IN ('Placed', 'Shipped', 'Delivered', 'Cancelled', 'Returned');</pre>
+<pre class="code">-- checks/valid_payment_status.sql
+SELECT payment_id, status
+FROM payments
+WHERE status NOT IN ('Success', 'Failed', 'Pending', 'Refunded');</pre>
+<pre class="code">-- checks/non_negative_amounts.sql
+SELECT 'order' AS source, order_id AS id, total_amount AS amount FROM orders WHERE total_amount &lt; 0
+UNION ALL
+SELECT 'payment', payment_id, amount FROM payments WHERE amount &lt; 0
+UNION ALL
+SELECT 'item', item_id, quantity FROM order_items WHERE quantity &lt;= 0;</pre>
+<p>Keeping checks as <code>.sql</code> files means anyone can add a check without writing Python, and the same files can be run in a SQL client.</p>
+
+<h2>5. The test: tests/test_data_checks.py</h2>
+<pre class="code">from pathlib import Path
+
+import pytest
+
+CHECKS_DIR = Path(__file__).parent.parent / "checks"
+
+# Checks that fail today because of defects already raised.
+# strict=True: once a fix lands the check passes, pytest reports XPASS(strict)
+# as a failure, and that reminds you to remove the entry from this list.
+KNOWN_DEFECTS = {
+    "orders_without_customer": "DEF-101: order 1015 points to customer 99",
+    "items_without_order": "DEF-102: item 30 points to order 9999",
+    "duplicate_emails": "DEF-103: customers 2 and 9 share an email",
+    "missing_emails": "DEF-104: customer 5 has no email",
+    "header_line_mismatch": "DEF-105: orders 1003, 1010, 1017",
+    "duplicate_order_lines": "DEF-106: order 1003 has product 103 twice",
+    "delivered_unpaid": "DEF-107: order 1007 delivered with no payment",
+    "payment_mismatch": "DEF-108: order 1018 undercharged by 9",
+    "defect_status_date_mismatch": "DEF-109: defect 16 closed with no date",
+}
+
+
+def load_checks():
+    params = []
+    for path in sorted(CHECKS_DIR.glob("*.sql")):
+        name = path.stem
+        marks = [pytest.mark.data]
+        if name in KNOWN_DEFECTS:
+            marks.append(pytest.mark.xfail(reason=KNOWN_DEFECTS[name], strict=True))
+        params.append(pytest.param(path, id=name, marks=marks))
+    return params
+
+
+@pytest.mark.parametrize("check_file", load_checks())
+def test_data_check(db, check_file):
+    sql = check_file.read_text(encoding="utf-8")
+    failing_rows = db.execute(sql).fetchall()
+    assert failing_rows == [], f"{len(failing_rows)} failing row(s): {failing_rows[:10]}"</pre>
+
+<h2>6. pytest.ini</h2>
+<pre class="code">[pytest]
+testpaths = tests
+markers =
+    data: database data-quality checks
+addopts = -ra</pre>
+
+<h2>7. Run it</h2>
+<pre class="code">pytest</pre>
+<pre class="code">tests\test_data_checks.py xxxxxxx.xx..                                   [100%]
+=========================== short test summary info ===========================
+XFAIL tests/test_data_checks.py::test_data_check[defect_status_date_mismatch] - DEF-109: defect 16 closed with no date
+XFAIL tests/test_data_checks.py::test_data_check[delivered_unpaid] - DEF-107: order 1007 delivered with no payment
+...
+======================== 3 passed, 9 xfailed in 0.23s =========================</pre>
+<p>Each <code>x</code> is a known defect, each <code>.</code> a passing check, and the summary lists the reasons.</p>
+
+<h2>8. See it catch a regression and a fix</h2>
+<ul>
+  <li><b>New defect:</b> add <code>INSERT INTO orders VALUES (1021, 1, '2025-08-20', 'Lost', 10);</code> to the end of <code>seed.sql</code>. Run again: <code>valid_order_status</code> FAILS and shows the bad row. Remove the line afterwards.</li>
+  <li><b>Fixed defect:</b> change customer 9's email in <code>seed.sql</code> to <code>arjun.das@mail.com</code>. Run again: <code>duplicate_emails</code> shows <b>XPASS(strict)</b> and fails, telling you to remove DEF-103 from <code>KNOWN_DEFECTS</code>. Do that, and it becomes a normal passing check.</li>
+</ul>
+
+<h2>9. README and push</h2>
+<p>Your README should answer what the project is, how to run it, and what it demonstrates. A recruiter spends about 30 seconds on it:</p>
+<pre class="code"># sql-for-qa
+
+Automated data-quality checks for a retail/pharmacy order database, written as SQL
+and run with pytest. Each check returns the rows that break a business rule;
+an empty result is a pass.
+
+## What it checks
+Referential integrity (orphans), uniqueness, required fields, allowed values,
+order-header vs line-item reconciliation, and payment reconciliation.
+Known defects are tracked with strict xfail, so a fix is noticed automatically.
+
+## Run
+    python -m venv .venv
+    .venv\Scripts\Activate.ps1
+    pip install -r requirements.txt
+    pytest
+
+## Adding a check
+Drop a .sql file into checks/. It is picked up automatically.</pre>
+<pre class="code">git init
+git add .
+git commit -m "Add SQL data-quality checks run by pytest"
+git remote add origin https://github.com/&lt;your-username&gt;/sql-for-qa.git
+git push -u origin main</pre>
+
+<div class="callout interview"><b>How to talk about this project</b>
+<p>"I built a data-quality suite where each business rule is a SQL check that returns violating rows, and pytest runs them as parametrized tests. Known defects are marked strict xfail with their IDs, so the suite stays green for known issues but fails when there's a new problem, and also when a fix lands, so we update our tracking. Checks are plain SQL files, so a manual tester or BA can add one. The same approach worked against MySQL at work; only the connection fixture changes."</p>
+</div>
+
+<h2>Exercises</h2>
+<div class="ex" data-id="w03-l6-e1"><p class="q">Push <code>sql-for-qa</code> to GitHub with the README, and confirm that a fresh clone runs with the three commands in it.</p>
+<details class="ans"><summary>Show answer</summary><pre class="code">cd $env:TEMP
+git clone https://github.com/&lt;your-username&gt;/sql-for-qa.git
+cd sql-for-qa
+python -m venv .venv; .venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+pytest          # 3 passed, 9 xfailed</pre><p>Testing your own setup instructions from a clean clone is a tester's habit. It catches a missing file or package before a recruiter does.</p></details></div>
+
+<div class="ex" data-id="w03-l6-e2"><p class="q">Add a 13th check of your own: products that are inactive but still appear in an order placed after <code>2025-04-01</code>. Does it pass or fail?</p>
+<details class="ans"><summary>Show answer</summary><pre class="code">-- checks/inactive_product_sold.sql
+SELECT oi.item_id, oi.order_id, p.product_name, o.order_date
+FROM order_items oi
+JOIN products p ON p.product_id = oi.product_id
+JOIN orders o   ON o.order_id = oi.order_id
+WHERE p.is_active = 0
+  AND o.order_date &gt;= '2025-04-01';</pre><p>It fails: Green Tea (inactive) was sold in order 1011 on 2025-04-18. Is that a defect? Only if the product was already inactive then. You'd need the date it was deactivated, which this database doesn't store. Note that in the README as an open question. Asking that kind of question is how good testers work.</p></details></div>
+
+<div class="ex" data-id="w03-l6-e3"><p class="q">Make the report easier to read: change the assertion message so it prints the column names with each failing row.</p>
+<details class="ans"><summary>Show answer</summary><pre class="code">@pytest.mark.parametrize("check_file", load_checks())
+def test_data_check(db, check_file):
+    cur = db.execute(check_file.read_text(encoding="utf-8"))
+    cols = [c[0] for c in cur.description]
+    rows = [dict(zip(cols, r)) for r in cur.fetchall()]
+    assert rows == [], f"{len(rows)} failing row(s):\n" + "\n".join(map(str, rows[:10]))</pre></details></div>
+</section>
+
+</body></html>

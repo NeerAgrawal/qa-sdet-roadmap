@@ -1,0 +1,683 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Week 1 lessons</title></head><body>
+
+<!-- ===================================================== L1 ===================================================== -->
+<section class="lesson" id="w01-l1">
+<p>At Rite Aid you ran SQL scripts to create test patients and find data problems. This week turns that into fluency: writing any query from scratch, quickly, while someone watches. That is what an interview SQL round tests.</p>
+
+<h2>Why testers need SQL</h2>
+<ul>
+  <li><b>Verifying the backend.</b> The UI says "Order placed". The database is where you confirm the right rows were written, with the right values.</li>
+  <li><b>Creating test data.</b> Insert the exact patient, customer or order your test needs, instead of clicking through the UI for 10 minutes.</li>
+  <li><b>Finding defects the UI hides.</b> Duplicate records, orphan rows, totals that don't add up.</li>
+  <li><b>Interviews.</b> Almost every QA and SDET interview in India has at least one SQL question. Many have a full round.</li>
+</ul>
+
+<h2>The words you need</h2>
+<div class="tablewrap"><table class="ref">
+<tr><th>Term</th><th>Meaning</th><th>In our practice database</th></tr>
+<tr><td>Database</td><td>A collection of related tables</td><td>The whole shop</td></tr>
+<tr><td>Table</td><td>One kind of thing, stored as rows and columns</td><td><code>customers</code>, <code>orders</code></td></tr>
+<tr><td>Row (record)</td><td>One item</td><td>One customer: Priya Nair</td></tr>
+<tr><td>Column (field)</td><td>One attribute, with a data type</td><td><code>email</code> (text), <code>price</code> (number)</td></tr>
+<tr><td>Primary key (PK)</td><td>A column that uniquely identifies each row. Never NULL, never repeated.</td><td><code>customers.customer_id</code></td></tr>
+<tr><td>Foreign key (FK)</td><td>A column that points to another table's primary key</td><td><code>orders.customer_id</code> → <code>customers.customer_id</code></td></tr>
+</table></div>
+
+<p>Our practice database has 7 tables. The list is in the panel on the right. <code>customers</code> place <code>orders</code>; each order has <code>order_items</code> (one row per product); each order can have <code>payments</code>. There is also a <code>defects</code> table (a bug tracker, like Jira) and an <code>employees</code> table for classic interview questions.</p>
+
+<div class="callout"><b>About this database</b>The lessons run on SQLite inside your browser. The SQL you learn here is standard and works in MySQL, PostgreSQL and SQL Server. When MySQL behaves differently, a callout says so.</div>
+
+<h2>Your first query</h2>
+<p><code>SELECT</code> chooses the columns. <code>FROM</code> names the table. Press <b>Run</b>:</p>
+<pre class="run">SELECT * FROM customers;</pre>
+<p><code>*</code> means "every column". It's fine for exploring a table, but in real queries, name the columns you need:</p>
+<pre class="run">SELECT full_name, city FROM customers;</pre>
+
+<h3>Aliases and calculated columns</h3>
+<p>You can compute new columns and rename them with <code>AS</code>. Here is each product's price with 18% GST added:</p>
+<pre class="run">SELECT product_name,
+       price,
+       price * 1.18          AS price_with_gst,
+       ROUND(price * 1.18, 2) AS rounded
+FROM products;</pre>
+
+<h3>DISTINCT removes repeated rows</h3>
+<pre class="run">SELECT DISTINCT city FROM customers;</pre>
+<p><code>DISTINCT</code> applies to the whole row you select. <code>SELECT DISTINCT city, loyalty_tier</code> gives unique <i>combinations</i>, so a city can appear more than once.</p>
+
+<h2>Sorting with ORDER BY</h2>
+<pre class="run">SELECT product_name, category, price
+FROM products
+ORDER BY category ASC, price DESC;</pre>
+<p><code>ASC</code> (A→Z, low→high) is the default. <code>DESC</code> reverses it. With several columns, the second only breaks ties in the first.</p>
+
+<h2>Limiting rows with LIMIT</h2>
+<pre class="run">SELECT product_name, price
+FROM products
+ORDER BY price DESC
+LIMIT 3;</pre>
+<p><code>LIMIT 3 OFFSET 3</code> skips 3 rows and returns the next 3. This is how pagination works, and how you test it.</p>
+
+<div class="callout warn"><b>Common mistake</b>Without <code>ORDER BY</code>, a database can return rows <i>in any order</i>, and the order can change between runs. If an automated test checks "the first row is X" without <code>ORDER BY</code>, it will become flaky. Always sort before you check position.</div>
+
+<div class="callout"><b>MySQL / SQL Server</b>MySQL uses <code>LIMIT</code> like SQLite. SQL Server uses <code>SELECT TOP 3 ...</code> or <code>OFFSET 0 ROWS FETCH NEXT 3 ROWS ONLY</code>.</div>
+
+<div class="callout interview"><b>Interview questions</b>
+<p><b>Primary key vs foreign key?</b> A primary key uniquely identifies a row in its own table: one per table, not NULL, unique. A foreign key is a column that references another table's primary key, to link records. A table can have many foreign keys.</p>
+<p><b>Can a table have two primary keys?</b> No. It has one primary key, but that key can be made of several columns (a <i>composite key</i>, e.g. <code>(order_id, product_id)</code>).</p>
+<p><b>Primary key vs unique key?</b> Both prevent duplicates. A table has only one primary key, and it can't be NULL. It can have many unique keys, and most databases allow NULL in a unique column.</p>
+</div>
+
+<h2>Exercises</h2>
+<div class="ex" data-id="w01-l1-e1"><p class="q">List every product's name and price.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT product_name, price FROM products;</pre></details></div>
+
+<div class="ex" data-id="w01-l1-e2"><p class="q">Show the 3 most expensive products, most expensive first.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT product_name, price
+FROM products
+ORDER BY price DESC
+LIMIT 3;</pre></details></div>
+
+<div class="ex" data-id="w01-l1-e3"><p class="q">Which cities do our customers live in? Show each city once, in alphabetical order.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT DISTINCT city
+FROM customers
+ORDER BY city;</pre></details></div>
+
+<div class="ex" data-id="w01-l1-e4"><p class="q">For each order, show order_id, order_date, total_amount, and a column called <code>amount_in_thousands</code> (total_amount divided by 1000, rounded to 1 decimal).</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT order_id, order_date, total_amount,
+       ROUND(total_amount / 1000, 1) AS amount_in_thousands
+FROM orders;</pre></details></div>
+
+<div class="ex" data-id="w01-l1-e5"><p class="q">Show all orders sorted by status A→Z. Within each status, show the newest order first.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT order_id, status, order_date
+FROM orders
+ORDER BY status ASC, order_date DESC;</pre></details></div>
+
+<div class="ex" data-id="w01-l1-e6"><p class="q">Page 2 of the product list: products sorted by name, 5 per page. Show rows 6–10.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT product_id, product_name
+FROM products
+ORDER BY product_name
+LIMIT 5 OFFSET 5;</pre><p>Page <i>n</i> with page size <i>s</i> uses <code>OFFSET (n-1)*s</code>.</p></details></div>
+</section>
+
+<!-- ===================================================== L2 ===================================================== -->
+<section class="lesson" id="w01-l2">
+<p><code>WHERE</code> keeps only the rows that match a condition. Most queries you write at work have one. It goes after <code>FROM</code> and before <code>ORDER BY</code>.</p>
+
+<h2>Comparison operators</h2>
+<div class="tablewrap"><table class="ref">
+<tr><th>Operator</th><th>Meaning</th><th>Example</th></tr>
+<tr><td><code>=</code></td><td>equal</td><td><code>status = 'Delivered'</code></td></tr>
+<tr><td><code>&lt;&gt;</code> or <code>!=</code></td><td>not equal</td><td><code>status &lt;&gt; 'Cancelled'</code></td></tr>
+<tr><td><code>&gt; &lt; &gt;= &lt;=</code></td><td>greater / less</td><td><code>price &gt;= 1000</code></td></tr>
+</table></div>
+<pre class="run">SELECT order_id, status, total_amount
+FROM orders
+WHERE status = 'Delivered';</pre>
+<p>Text values go in <b>single quotes</b>. Numbers don't need quotes.</p>
+
+<div class="callout"><b>MySQL</b>In SQLite, <code>'delivered'</code> doesn't match <code>'Delivered'</code>. In MySQL, the default text comparison usually ignores case, so it would match. Know which database you're testing against: a case bug can hide in one and show in the other.</div>
+
+<h2>Combining conditions: AND, OR, NOT</h2>
+<pre class="run">SELECT order_id, order_date, status, total_amount
+FROM orders
+WHERE status = 'Delivered' AND total_amount &gt; 1000;</pre>
+
+<div class="callout warn"><b>Common mistake: AND before OR</b>
+<p><code>AND</code> is evaluated before <code>OR</code>, just as × comes before + in maths. This query means "Critical defects that are Open, <i>or</i> any High defect", which is probably not what you wanted:</p>
+<pre class="run">SELECT defect_id, severity, status
+FROM defects
+WHERE status = 'Open' AND severity = 'Critical' OR severity = 'High';</pre>
+<p>Use brackets to say what you mean:</p>
+<pre class="run">SELECT defect_id, severity, status
+FROM defects
+WHERE status = 'Open' AND (severity = 'Critical' OR severity = 'High');</pre>
+</div>
+
+<h2>IN, BETWEEN, LIKE</h2>
+<p><b>IN</b> is a short way of writing several ORs:</p>
+<pre class="run">SELECT product_name, category FROM products
+WHERE category IN ('Devices', 'Nutrition');</pre>
+<p><b>BETWEEN</b> is <i>inclusive</i> at both ends:</p>
+<pre class="run">SELECT order_id, order_date FROM orders
+WHERE order_date BETWEEN '2025-03-01' AND '2025-03-31';</pre>
+<p>Dates here are stored as text like <code>'2025-03-15'</code>. That format sorts correctly as text, so comparisons work.</p>
+
+<div class="callout warn"><b>Date trap in MySQL</b>If a MySQL column is <code>DATETIME</code>, <code>BETWEEN '2025-03-01' AND '2025-03-31'</code> stops at <code>2025-03-31 00:00:00</code> and <b>misses everything later on 31 March</b>. The safe pattern is <code>col &gt;= '2025-03-01' AND col &lt; '2025-04-01'</code>. This is a real defect source, and a good interview point.</div>
+
+<p><b>LIKE</b> matches patterns. <code>%</code> means any number of characters; <code>_</code> means exactly one:</p>
+<pre class="run">SELECT full_name, email FROM customers
+WHERE full_name LIKE 'A%';      -- names starting with A</pre>
+<pre class="run">SELECT product_name FROM products
+WHERE product_name LIKE '%Monitor%';   -- contains "Monitor"</pre>
+<p>Text after <code>--</code> is a comment. SQL ignores it.</p>
+
+<h2>NULL: missing values</h2>
+<p><code>NULL</code> means "no value / unknown". It is not zero and not an empty string. You <b>can't</b> compare it with <code>=</code>. Run this. It returns nothing, even though one customer has no email:</p>
+<pre class="run">SELECT full_name, email FROM customers WHERE email = NULL;</pre>
+<p>The correct way:</p>
+<pre class="run">SELECT full_name, email FROM customers WHERE email IS NULL;</pre>
+<p>Use <code>IS NOT NULL</code> for the opposite. You'll see why <code>= NULL</code> fails in Lesson 5.</p>
+
+<div class="callout interview"><b>Interview questions</b>
+<p><b>Difference between <code>=</code> NULL and IS NULL?</b> Any comparison with NULL gives "unknown", which WHERE treats as false. So <code>= NULL</code> never matches. <code>IS NULL</code> is the operator built for this check.</p>
+<p><b>Is BETWEEN inclusive?</b> Yes, at both ends.</p>
+<p><b>What do % and _ mean in LIKE?</b> <code>%</code> is zero or more characters; <code>_</code> is exactly one.</p>
+</div>
+
+<h2>Exercises</h2>
+<div class="ex" data-id="w01-l2-e1"><p class="q">List all cancelled orders.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT * FROM orders WHERE status = 'Cancelled';</pre></details></div>
+
+<div class="ex" data-id="w01-l2-e2"><p class="q">Orders over ₹1,000 placed between 1 April and 30 June 2025 (Q2).</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT order_id, order_date, total_amount
+FROM orders
+WHERE total_amount &gt; 1000
+  AND order_date BETWEEN '2025-04-01' AND '2025-06-30';</pre></details></div>
+
+<div class="ex" data-id="w01-l2-e3"><p class="q">Products in the Devices or Nutrition category that cost less than ₹1,500.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT product_name, category, price
+FROM products
+WHERE category IN ('Devices', 'Nutrition')
+  AND price &lt; 1500;</pre></details></div>
+
+<div class="ex" data-id="w01-l2-e4"><p class="q">Customers who have no loyalty tier.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT customer_id, full_name FROM customers WHERE loyalty_tier IS NULL;</pre></details></div>
+
+<div class="ex" data-id="w01-l2-e5"><p class="q">All defects that are <b>not</b> Closed and have severity Critical. These are the release blockers.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT defect_id, title, status
+FROM defects
+WHERE severity = 'Critical' AND status &lt;&gt; 'Closed';</pre></details></div>
+
+<div class="ex" data-id="w01-l2-e6"><p class="q">Defects whose title mentions "SMS" or "email" (any capitalisation is fine; use LIKE).</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT defect_id, title
+FROM defects
+WHERE title LIKE '%SMS%' OR title LIKE '%email%';</pre><p>In SQLite, <code>LIKE</code> ignores case for English letters, though <code>=</code> doesn't.</p></details></div>
+
+<div class="ex" data-id="w01-l2-e7"><p class="q">Defects that are open but have no one assigned. A triage meeting would want this list.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT defect_id, title, status
+FROM defects
+WHERE status &lt;&gt; 'Closed' AND assigned_to IS NULL;</pre></details></div>
+</section>
+
+<!-- ===================================================== L3 ===================================================== -->
+<section class="lesson" id="w01-l3">
+<p>So far, every query returned rows from the table. Aggregates <b>summarise</b> many rows into one number: "how many open defects?", "total revenue per month?". Test reports, dashboards and data checks all depend on them.</p>
+
+<h2>Aggregate functions</h2>
+<div class="tablewrap"><table class="ref">
+<tr><th>Function</th><th>Returns</th><th>NULLs</th></tr>
+<tr><td><code>COUNT(*)</code></td><td>number of rows</td><td>counts every row</td></tr>
+<tr><td><code>COUNT(col)</code></td><td>number of non-NULL values</td><td>skips NULL</td></tr>
+<tr><td><code>COUNT(DISTINCT col)</code></td><td>number of different values</td><td>skips NULL</td></tr>
+<tr><td><code>SUM / AVG</code></td><td>total / average</td><td>skip NULL</td></tr>
+<tr><td><code>MIN / MAX</code></td><td>smallest / largest</td><td>skip NULL</td></tr>
+</table></div>
+<pre class="run">SELECT COUNT(*)              AS customers,
+       COUNT(email)          AS with_email,
+       COUNT(DISTINCT email) AS unique_emails,
+       COUNT(loyalty_tier)   AS with_tier
+FROM customers;</pre>
+<p>Look at the result. 12 customers, 11 with email, but only 10 unique emails. Two customers share an address. You've just found a data defect with one query.</p>
+
+<h2>GROUP BY: one result row per group</h2>
+<pre class="run">SELECT module, COUNT(*) AS defects
+FROM defects
+GROUP BY module
+ORDER BY defects DESC;</pre>
+<p>Group by more than one column to get one row per combination:</p>
+<pre class="run">SELECT module, severity, COUNT(*) AS defects
+FROM defects
+GROUP BY module, severity
+ORDER BY module, defects DESC;</pre>
+
+<div class="callout warn"><b>The GROUP BY rule</b>Every column in <code>SELECT</code> must either be in <code>GROUP BY</code> or be inside an aggregate. <code>SELECT module, title, COUNT(*) ... GROUP BY module</code> makes no sense: which title should it show for a module with 6 defects? SQLite quietly picks one. MySQL 8 (with <code>ONLY_FULL_GROUP_BY</code>, the default) and most other databases give an error.</div>
+
+<h2>HAVING: filtering groups</h2>
+<p><code>WHERE</code> filters <b>rows before grouping</b>. <code>HAVING</code> filters <b>groups after aggregation</b>. Modules with more than 3 defects:</p>
+<pre class="run">SELECT module, COUNT(*) AS defects
+FROM defects
+GROUP BY module
+HAVING COUNT(*) &gt; 3;</pre>
+<p>Both together: count only unresolved defects, then keep modules with 2 or more:</p>
+<pre class="run">SELECT module, COUNT(*) AS open_defects
+FROM defects
+WHERE status &lt;&gt; 'Closed'
+GROUP BY module
+HAVING COUNT(*) &gt;= 2;</pre>
+
+<h2>The order SQL actually runs in</h2>
+<p>You <i>write</i> SELECT first, but the database <i>runs</i> it in this order. Learn it; it explains many errors.</p>
+<pre class="code">1. FROM / JOIN    which rows exist
+2. WHERE          keep some rows
+3. GROUP BY       make groups
+4. HAVING         keep some groups
+5. SELECT         compute columns and aliases
+6. DISTINCT
+7. ORDER BY       sort (aliases work here)
+8. LIMIT / OFFSET</pre>
+<p>This is why you can't use a SELECT alias inside WHERE in most databases: WHERE runs before SELECT has created it.</p>
+
+<div class="callout interview"><b>Interview questions</b>
+<p><b>WHERE vs HAVING?</b> WHERE filters individual rows before grouping and can't use aggregates. HAVING filters groups after GROUP BY and usually uses aggregates. You can use both in one query.</p>
+<p><b>COUNT(*) vs COUNT(column) vs COUNT(1)?</b> COUNT(*) and COUNT(1) both count all rows, with the same performance in modern databases. COUNT(column) counts only rows where that column is not NULL.</p>
+<p><b>What's the logical order of SQL execution?</b> FROM → WHERE → GROUP BY → HAVING → SELECT → ORDER BY → LIMIT.</p>
+</div>
+
+<h2>Exercises</h2>
+<div class="ex" data-id="w01-l3-e1"><p class="q">How many orders are there, and what is the total and average order amount? Round the average to 2 decimals.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT COUNT(*) AS orders,
+       SUM(total_amount) AS total,
+       ROUND(AVG(total_amount), 2) AS average
+FROM orders;</pre></details></div>
+
+<div class="ex" data-id="w01-l3-e2"><p class="q">Number of orders and total amount for each order status.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT status, COUNT(*) AS orders, SUM(total_amount) AS amount
+FROM orders
+GROUP BY status
+ORDER BY amount DESC;</pre></details></div>
+
+<div class="ex" data-id="w01-l3-e3"><p class="q">Average product price per category, highest first, rounded to the nearest rupee.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT category, ROUND(AVG(price)) AS avg_price
+FROM products
+GROUP BY category
+ORDER BY avg_price DESC;</pre></details></div>
+
+<div class="ex" data-id="w01-l3-e4"><p class="q">How many defects has each person reported, and how many of those were Critical? (Hint: try <code>SUM(severity = 'Critical')</code>. In SQLite a true comparison equals 1.)</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT reported_by,
+       COUNT(*) AS reported,
+       SUM(severity = 'Critical') AS critical
+FROM defects
+GROUP BY reported_by;</pre><p>The portable version, which works in every database, is <code>SUM(CASE WHEN severity = 'Critical' THEN 1 ELSE 0 END)</code>. You'll learn CASE in Lesson 5.</p></details></div>
+
+<div class="ex" data-id="w01-l3-e5"><p class="q">Which developers (<code>assigned_to</code>) have more than 2 defects assigned in total?</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT assigned_to, COUNT(*) AS defects
+FROM defects
+WHERE assigned_to IS NOT NULL
+GROUP BY assigned_to
+HAVING COUNT(*) &gt; 2;</pre></details></div>
+
+<div class="ex" data-id="w01-l3-e6"><p class="q"><b>Data check:</b> find any email address used by more than one customer. Show the email and how many times it appears.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT email, COUNT(*) AS times_used
+FROM customers
+WHERE email IS NOT NULL
+GROUP BY email
+HAVING COUNT(*) &gt; 1;</pre><p>This <code>GROUP BY … HAVING COUNT(*) &gt; 1</code> pattern is the most common duplicate check in QA. You'll use it constantly.</p></details></div>
+
+<div class="ex" data-id="w01-l3-e7"><p class="q">For each order status, what are the smallest and largest order amounts? Show only statuses with at least 2 orders.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT status, MIN(total_amount) AS smallest, MAX(total_amount) AS largest, COUNT(*) AS orders
+FROM orders
+GROUP BY status
+HAVING COUNT(*) &gt;= 2;</pre></details></div>
+</section>
+
+<!-- ===================================================== L4 ===================================================== -->
+<section class="lesson" id="w01-l4">
+<p>Real data is split across tables. An order row stores <code>customer_id = 4</code>, not "Sneha Iyer". A <b>JOIN</b> puts the pieces back together. JOINs are the most important topic in SQL interviews, so this lesson is the longest of the week.</p>
+
+<h2>INNER JOIN: only rows that match</h2>
+<pre class="run">SELECT o.order_id, o.order_date, c.full_name, o.total_amount
+FROM orders AS o
+INNER JOIN customers AS c
+        ON c.customer_id = o.customer_id
+ORDER BY o.order_id;</pre>
+<ul>
+  <li><code>o</code> and <code>c</code> are <b>table aliases</b>. They make queries shorter and tell you which table each column comes from.</li>
+  <li><code>ON</code> gives the matching rule, usually foreign key = primary key.</li>
+  <li><code>JOIN</code> on its own means <code>INNER JOIN</code>.</li>
+</ul>
+<p>Count the rows. There are 20 orders, but the result has 19. <b>Order 1015 is missing.</b> Its <code>customer_id</code> is 99, and no customer 99 exists. INNER JOIN drops rows that have no match. Your first <i>orphan record</i>.</p>
+
+<h2>LEFT JOIN: keep everything from the left table</h2>
+<p>LEFT JOIN keeps <b>every row from the left table</b>. Where there's no match on the right, the right-side columns are NULL.</p>
+<pre class="run">SELECT c.customer_id, c.full_name, o.order_id
+FROM customers c
+LEFT JOIN orders o ON o.customer_id = c.customer_id
+ORDER BY c.customer_id;</pre>
+<p>Rahul (11) and Isha (12) appear with NULL order_id: they never ordered. This leads to one of the most useful patterns in SQL:</p>
+
+<h3>The "find what's missing" pattern</h3>
+<pre class="run">SELECT c.customer_id, c.full_name
+FROM customers c
+LEFT JOIN orders o ON o.customer_id = c.customer_id
+WHERE o.order_id IS NULL;</pre>
+<p>LEFT JOIN, then keep rows where the right side is NULL. That gives you "customers without orders", "products never sold", "orders without payment" and "items pointing to deleted orders". Testers use this pattern all the time.</p>
+
+<h2>RIGHT and FULL OUTER JOIN</h2>
+<p><b>RIGHT JOIN</b> is the mirror image: it keeps every row from the right table. Most people rewrite it as a LEFT JOIN with the tables swapped, which is easier to read. <b>FULL OUTER JOIN</b> keeps unmatched rows from <i>both</i> sides:</p>
+<pre class="run">SELECT c.customer_id, c.full_name, o.order_id, o.customer_id AS order_customer
+FROM customers c
+FULL OUTER JOIN orders o ON o.customer_id = c.customer_id
+WHERE c.customer_id IS NULL OR o.order_id IS NULL;</pre>
+<p>One query shows both problems: customers with no orders, and the order whose customer doesn't exist.</p>
+<div class="callout"><b>MySQL</b>MySQL has no FULL OUTER JOIN. The usual workaround is a LEFT JOIN <code>UNION</code> a RIGHT JOIN. Expect this as an interview follow-up.</div>
+
+<h2>Joining three or more tables</h2>
+<p>Add one JOIN per table. Each order line with the customer name and product name:</p>
+<pre class="run">SELECT o.order_id, c.full_name, p.product_name,
+       oi.quantity, oi.unit_price,
+       oi.quantity * oi.unit_price AS line_total
+FROM orders o
+JOIN customers c    ON c.customer_id = o.customer_id
+JOIN order_items oi ON oi.order_id   = o.order_id
+JOIN products p     ON p.product_id  = oi.product_id
+ORDER BY o.order_id;</pre>
+
+<h2>Self join: a table joined to itself</h2>
+<p><code>employees.manager_id</code> points to another row in the same table. Use two aliases:</p>
+<pre class="run">SELECT e.full_name AS employee, m.full_name AS manager
+FROM employees e
+LEFT JOIN employees m ON m.emp_id = e.manager_id;</pre>
+<p>It's a LEFT JOIN so that Lakshmi, who has no manager, still appears.</p>
+
+<h2>CROSS JOIN: every combination</h2>
+<p>A CROSS JOIN pairs every row with every other row, with no ON clause. Testers use it to build test matrices. For example, every payment method for every product category:</p>
+<pre class="run">SELECT DISTINCT p.category, pay.method
+FROM products p
+CROSS JOIN payments pay
+ORDER BY 1, 2;</pre>
+
+<div class="callout warn"><b>Two classic JOIN bugs</b>
+<p><b>1. A WHERE clause that undoes your LEFT JOIN.</b> If you filter the right table in WHERE (e.g. <code>WHERE o.status = 'Delivered'</code>), the NULL rows are removed and you get an INNER JOIN again. Put the condition in <code>ON</code> instead:</p>
+<pre class="run">-- keeps all customers; counts only their delivered orders
+SELECT c.full_name, COUNT(o.order_id) AS delivered_orders
+FROM customers c
+LEFT JOIN orders o
+       ON o.customer_id = c.customer_id AND o.status = 'Delivered'
+GROUP BY c.customer_id, c.full_name
+ORDER BY delivered_orders;</pre>
+<p><b>2. Fan-out.</b> Joining orders to order_items repeats each order once per item. If you then <code>SUM(o.total_amount)</code>, you count orders twice or three times. Always ask yourself what one row of the joined result represents.</p>
+</div>
+
+<div class="callout interview"><b>Interview questions</b>
+<p><b>Explain the types of joins.</b> INNER: matching rows only. LEFT: all left rows plus matches (NULLs where none). RIGHT: the mirror of LEFT. FULL: all rows from both sides. CROSS: every combination. SELF: a table joined to itself, using aliases.</p>
+<p><b>Table A has 5 rows, B has 3. Maximum rows from a CROSS JOIN? From an INNER JOIN?</b> CROSS gives exactly 15. INNER can return anything from 0 to 15, depending on duplicate keys. This one is asked often; answer it calmly.</p>
+<p><b>How do you find records in A that are not in B?</b> LEFT JOIN B and check <code>B.key IS NULL</code>, or use <code>NOT EXISTS</code> (Week 2).</p>
+</div>
+
+<h2>Exercises</h2>
+<div class="ex" data-id="w01-l4-e1"><p class="q">List every payment with the order date and the customer's name.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT pay.payment_id, o.order_date, c.full_name, pay.amount, pay.status
+FROM payments pay
+JOIN orders o    ON o.order_id = pay.order_id
+JOIN customers c ON c.customer_id = o.customer_id;</pre></details></div>
+
+<div class="ex" data-id="w01-l4-e2"><p class="q">Products that have never been ordered.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT p.product_id, p.product_name
+FROM products p
+LEFT JOIN order_items oi ON oi.product_id = p.product_id
+WHERE oi.item_id IS NULL;</pre></details></div>
+
+<div class="ex" data-id="w01-l4-e3"><p class="q">Show the line items of order 1003 with product name and line total. Does the sum match the order's <code>total_amount</code> of 2298?</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT oi.item_id, p.product_name, oi.quantity, oi.unit_price,
+       oi.quantity * oi.unit_price AS line_total
+FROM order_items oi
+JOIN products p ON p.product_id = oi.product_id
+WHERE oi.order_id = 1003;</pre><p>The thermometer appears twice (items 5 and 29), so the lines add up to 2697, not 2298. That's a duplicate line item, a real defect. You'll write a check that catches every case like this in Week 2.</p></details></div>
+
+<div class="ex" data-id="w01-l4-e4"><p class="q">Total amount spent by each customer on <b>Delivered</b> orders. Show their name, highest spender first.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT c.full_name, SUM(o.total_amount) AS spent
+FROM customers c
+JOIN orders o ON o.customer_id = c.customer_id
+WHERE o.status = 'Delivered'
+GROUP BY c.customer_id, c.full_name
+ORDER BY spent DESC;</pre></details></div>
+
+<div class="ex" data-id="w01-l4-e5"><p class="q"><b>Data check:</b> find order_items rows that point to an order that doesn't exist.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT oi.*
+FROM order_items oi
+LEFT JOIN orders o ON o.order_id = oi.order_id
+WHERE o.order_id IS NULL;</pre><p>Item 30 points to order 9999. A foreign key constraint should block this; SQLite doesn't enforce foreign keys unless you switch them on, and some production systems drop the constraints for speed. That is how orphans get into real databases.</p></details></div>
+
+<div class="ex" data-id="w01-l4-e6"><p class="q">Each employee with their manager's name and department. Show employees with no manager too.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT e.full_name AS employee, e.dept,
+       m.full_name AS manager, m.dept AS manager_dept
+FROM employees e
+LEFT JOIN employees m ON m.emp_id = e.manager_id
+ORDER BY e.dept;</pre></details></div>
+
+<div class="ex" data-id="w01-l4-e7"><p class="q">For every product category, the number of units sold (sum of quantity) across all orders except Cancelled ones. Categories with no sales should show 0. (Hint: start FROM products, so every category appears.)</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT p.category, COALESCE(SUM(oi.quantity), 0) AS units
+FROM products p
+LEFT JOIN order_items oi ON oi.product_id = p.product_id
+LEFT JOIN orders o       ON o.order_id = oi.order_id AND o.status &lt;&gt; 'Cancelled'
+GROUP BY p.category
+ORDER BY units DESC;</pre><p>Careful: this version still counts items from cancelled orders, because the second LEFT JOIN only turns <code>o</code> into NULL; it doesn't remove the <code>oi</code> row. A correct version counts only when the order matched:</p><pre class="run">SELECT p.category,
+       COALESCE(SUM(CASE WHEN o.order_id IS NOT NULL THEN oi.quantity END), 0) AS units
+FROM products p
+LEFT JOIN order_items oi ON oi.product_id = p.product_id
+LEFT JOIN orders o       ON o.order_id = oi.order_id AND o.status &lt;&gt; 'Cancelled'
+GROUP BY p.category
+ORDER BY units DESC;</pre><p>This is a hard one. If your first attempt looked like the first answer, compare the two results: that difference is exactly the kind of mistake that hides in reports. CASE and COALESCE are covered in the next lesson.</p></details></div>
+</section>
+
+<!-- ===================================================== L5 ===================================================== -->
+<section class="lesson" id="w01-l5">
+<p>This lesson covers the tools that make queries useful in practice: handling NULLs, if/else logic with <code>CASE</code>, and functions for text and dates. With these you can build reports that managers actually read.</p>
+
+<h2>Why NULL behaves strangely</h2>
+<p>SQL uses three-valued logic: TRUE, FALSE and <b>UNKNOWN</b>. Any comparison with NULL is UNKNOWN, and any arithmetic with NULL gives NULL:</p>
+<pre class="run">SELECT NULL = NULL      AS eq,
+       NULL &lt;&gt; 1        AS neq,
+       10 + NULL        AS plus,
+       NULL IS NULL     AS is_null;</pre>
+<p>WHERE keeps only TRUE rows, so UNKNOWN rows disappear quietly. That's why <code>= NULL</code> returns nothing.</p>
+
+<h3>COALESCE and NULLIF</h3>
+<p><code>COALESCE(a, b, c)</code> returns the first value that isn't NULL. Use it to show a default:</p>
+<pre class="run">SELECT full_name,
+       COALESCE(email, 'missing')     AS email,
+       COALESCE(loyalty_tier, 'None') AS tier
+FROM customers;</pre>
+<p><code>NULLIF(a, b)</code> returns NULL when a = b. Its main use is avoiding divide-by-zero: <code>x / NULLIF(y, 0)</code>.</p>
+<div class="callout"><b>MySQL</b><code>IFNULL(a, b)</code> works in MySQL and SQLite; SQL Server uses <code>ISNULL(a, b)</code>. <code>COALESCE</code> works in all of them. Prefer it.</div>
+
+<h2>CASE: if/else inside a query</h2>
+<pre class="run">SELECT product_name, price,
+       CASE
+         WHEN price &lt; 300  THEN 'Budget'
+         WHEN price &lt; 1500 THEN 'Mid-range'
+         ELSE 'Premium'
+       END AS price_band
+FROM products
+ORDER BY price;</pre>
+<p>Conditions are checked from top to bottom, and the first true one wins. Without <code>ELSE</code>, unmatched rows get NULL.</p>
+
+<h3>Conditional aggregation: the reporting technique</h3>
+<p>Put CASE inside SUM or COUNT to count several things in one pass. A defect dashboard with one row per module:</p>
+<pre class="run">SELECT module,
+       COUNT(*)                                              AS total,
+       SUM(CASE WHEN status &lt;&gt; 'Closed' THEN 1 ELSE 0 END)  AS unresolved,
+       SUM(CASE WHEN severity = 'Critical' THEN 1 ELSE 0 END) AS critical,
+       SUM(CASE WHEN severity = 'Critical' AND status &lt;&gt; 'Closed' THEN 1 ELSE 0 END) AS blockers
+FROM defects
+GROUP BY module
+ORDER BY blockers DESC, unresolved DESC;</pre>
+<p>This is the query behind most "defect summary" slides. If you can write this in an interview, you stand out.</p>
+
+<h2>Text functions</h2>
+<div class="tablewrap"><table class="ref">
+<tr><th>Task</th><th>SQLite</th><th>MySQL</th></tr>
+<tr><td>Upper / lower case</td><td><code>UPPER(s)</code>, <code>LOWER(s)</code></td><td>same</td></tr>
+<tr><td>Length</td><td><code>LENGTH(s)</code></td><td><code>CHAR_LENGTH(s)</code> (characters)</td></tr>
+<tr><td>Trim spaces</td><td><code>TRIM(s)</code></td><td>same</td></tr>
+<tr><td>Part of a string</td><td><code>SUBSTR(s, start, len)</code></td><td><code>SUBSTRING(s, start, len)</code></td></tr>
+<tr><td>Position of text</td><td><code>INSTR(s, 'x')</code></td><td><code>INSTR(s, 'x')</code> / <code>LOCATE('x', s)</code></td></tr>
+<tr><td>Replace</td><td><code>REPLACE(s, a, b)</code></td><td>same</td></tr>
+<tr><td>Join strings</td><td><code>a || ' ' || b</code></td><td><code>CONCAT(a, ' ', b)</code></td></tr>
+</table></div>
+<pre class="run">SELECT full_name,
+       UPPER(city)                              AS city_upper,
+       SUBSTR(email, INSTR(email, '@') + 1)     AS email_domain,
+       full_name || ' (' || city || ')'          AS label
+FROM customers;</pre>
+
+<h2>Date functions</h2>
+<p>SQLite stores dates as text and gives you functions to work with them:</p>
+<pre class="run">SELECT order_id, order_date,
+       strftime('%Y-%m', order_date)                 AS year_month,
+       strftime('%w', order_date)                    AS weekday_0_is_sun,
+       date(order_date, '+7 days')                   AS plus_7_days,
+       julianday('2025-12-31') - julianday(order_date) AS days_to_year_end
+FROM orders
+LIMIT 5;</pre>
+<div class="tablewrap"><table class="ref">
+<tr><th>Task</th><th>SQLite</th><th>MySQL</th></tr>
+<tr><td>Today</td><td><code>date('now')</code></td><td><code>CURDATE()</code></td></tr>
+<tr><td>Year-month</td><td><code>strftime('%Y-%m', d)</code></td><td><code>DATE_FORMAT(d, '%Y-%m')</code></td></tr>
+<tr><td>Days between</td><td><code>julianday(b) - julianday(a)</code></td><td><code>DATEDIFF(b, a)</code></td></tr>
+<tr><td>Add days</td><td><code>date(d, '+7 days')</code></td><td><code>DATE_ADD(d, INTERVAL 7 DAY)</code></td></tr>
+</table></div>
+
+<div class="callout interview"><b>Interview questions</b>
+<p><b>What is NULL? Is it the same as 0 or ''?</b> NULL means no value or unknown. 0 and '' are real values. NULL needs IS NULL, it is ignored by most aggregates, and it makes any arithmetic result NULL.</p>
+<p><b>How do you replace NULL with a default value?</b> COALESCE (standard), or IFNULL / ISNULL depending on the database.</p>
+<p><b>Write a query that shows how many defects are open and how many are closed, in a single row.</b> That's conditional aggregation: <code>SUM(CASE WHEN … THEN 1 ELSE 0 END)</code>.</p>
+</div>
+
+<h2>Exercises</h2>
+<div class="ex" data-id="w01-l5-e1"><p class="q">Every customer's name and loyalty tier, showing <code>No tier</code> where the tier is NULL.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT full_name, COALESCE(loyalty_tier, 'No tier') AS tier FROM customers;</pre></details></div>
+
+<div class="ex" data-id="w01-l5-e2"><p class="q">For each <b>closed</b> defect, how many days did it take to close? Show the slowest first.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT defect_id, title,
+       julianday(closed_on) - julianday(created_on) AS days_to_close
+FROM defects
+WHERE status = 'Closed'
+ORDER BY days_to_close DESC;</pre><p>Defect 16 shows NULL. It's marked Closed but has no closed date. Keep that in mind for Week 2.</p></details></div>
+
+<div class="ex" data-id="w01-l5-e3"><p class="q">Number of orders and revenue per month (<code>YYYY-MM</code>), oldest month first.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT strftime('%Y-%m', order_date) AS month,
+       COUNT(*) AS orders,
+       SUM(total_amount) AS revenue
+FROM orders
+GROUP BY month
+ORDER BY month;</pre></details></div>
+
+<div class="ex" data-id="w01-l5-e4"><p class="q">An SLA view for defects. Label each defect <code>Breached</code> if it is unresolved and is P1 or P2; <code>Watch</code> if it is unresolved and P3 or P4; <code>Done</code> if it is Closed.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT defect_id, priority, status,
+       CASE
+         WHEN status = 'Closed' THEN 'Done'
+         WHEN priority IN ('P1','P2') THEN 'Breached'
+         ELSE 'Watch'
+       END AS sla
+FROM defects
+ORDER BY sla, priority;</pre></details></div>
+
+<div class="ex" data-id="w01-l5-e5"><p class="q">One row per payment method: total collected (Success only), total refunded, and the number of failed payments.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT method,
+       SUM(CASE WHEN status = 'Success'  THEN amount ELSE 0 END) AS collected,
+       SUM(CASE WHEN status = 'Refunded' THEN amount ELSE 0 END) AS refunded,
+       SUM(CASE WHEN status = 'Failed'   THEN 1 ELSE 0 END)      AS failed_count
+FROM payments
+GROUP BY method;</pre></details></div>
+
+<div class="ex" data-id="w01-l5-e6"><p class="q">Show each customer's email domain (the part after @). Customers with no email should show <code>unknown</code>.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT full_name,
+       COALESCE(SUBSTR(email, INSTR(email, '@') + 1), 'unknown') AS domain
+FROM customers;</pre></details></div>
+</section>
+
+<!-- ===================================================== L6 ===================================================== -->
+<section class="lesson" id="w01-l6">
+<p>This lesson is a timed drill. Aim to finish all 8 exercises in 45 minutes <b>without opening the answers</b>. Interviewers care about getting there calmly and talking through what you're doing. Say your plan out loud as you type: "I need one row per customer, so I'll group by customer…".</p>
+
+<h2>Week 1 cheat sheet</h2>
+<pre class="code">SELECT   col, AGG(col) AS alias        -- 5. compute
+FROM     a                              -- 1. source
+JOIN     b ON b.key = a.key             -- 1. combine
+WHERE    row condition                  -- 2. filter rows
+GROUP BY col                            -- 3. group
+HAVING   AGG(col) condition             -- 4. filter groups
+ORDER BY alias DESC                     -- 7. sort
+LIMIT    n;                             -- 8. cut
+
+Missing rows      → LEFT JOIN … WHERE right.key IS NULL
+Duplicates        → GROUP BY key HAVING COUNT(*) &gt; 1
+Counts per type   → SUM(CASE WHEN … THEN 1 ELSE 0 END)
+NULL default      → COALESCE(col, 'default')</pre>
+
+<h2>How to approach any SQL question</h2>
+<ol>
+  <li><b>What is one row of the answer?</b> One customer? One month? One module?</li>
+  <li><b>Which tables hold the data?</b> Write the FROM and the JOINs first.</li>
+  <li><b>Which rows count?</b> Write the WHERE.</li>
+  <li><b>Group and aggregate</b>, then HAVING if needed.</li>
+  <li><b>Check the result</b> against a number you can count by hand. Testers have an advantage here: you already think about edge cases (NULLs, duplicates, no matches).</li>
+</ol>
+
+<h2>The drill</h2>
+<div class="ex" data-id="w01-l6-e1"><p class="q">Top 3 customers by total order value, counting every order except Cancelled ones. Show name and total.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT c.full_name, SUM(o.total_amount) AS total
+FROM customers c
+JOIN orders o ON o.customer_id = c.customer_id
+WHERE o.status &lt;&gt; 'Cancelled'
+GROUP BY c.customer_id, c.full_name
+ORDER BY total DESC
+LIMIT 3;</pre></details></div>
+
+<div class="ex" data-id="w01-l6-e2"><p class="q">Revenue per product category from Delivered orders only, using line items (quantity × unit_price).</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT p.category, SUM(oi.quantity * oi.unit_price) AS revenue
+FROM order_items oi
+JOIN orders o   ON o.order_id = oi.order_id
+JOIN products p ON p.product_id = oi.product_id
+WHERE o.status = 'Delivered'
+GROUP BY p.category
+ORDER BY revenue DESC;</pre></details></div>
+
+<div class="ex" data-id="w01-l6-e3"><p class="q">Customers who have bought from more than one product category.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT c.full_name, COUNT(DISTINCT p.category) AS categories
+FROM customers c
+JOIN orders o       ON o.customer_id = c.customer_id
+JOIN order_items oi ON oi.order_id = o.order_id
+JOIN products p     ON p.product_id = oi.product_id
+GROUP BY c.customer_id, c.full_name
+HAVING COUNT(DISTINCT p.category) &gt; 1;</pre></details></div>
+
+<div class="ex" data-id="w01-l6-e4"><p class="q">Unresolved defects per assignee, with unassigned defects grouped under <code>Unassigned</code>. Busiest first.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT COALESCE(assigned_to, 'Unassigned') AS assignee, COUNT(*) AS unresolved
+FROM defects
+WHERE status &lt;&gt; 'Closed'
+GROUP BY assignee
+ORDER BY unresolved DESC;</pre></details></div>
+
+<div class="ex" data-id="w01-l6-e5"><p class="q">Which month had the most orders? Return just that month and its count.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT strftime('%Y-%m', order_date) AS month, COUNT(*) AS orders
+FROM orders
+GROUP BY month
+ORDER BY orders DESC
+LIMIT 1;</pre><p>Interview follow-up: "What if two months tie?" LIMIT 1 hides the tie. You'll fix this with RANK in Week 2.</p></details></div>
+
+<div class="ex" data-id="w01-l6-e6"><p class="q">Cities with more than one customer.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT city, COUNT(*) AS customers
+FROM customers
+GROUP BY city
+HAVING COUNT(*) &gt; 1;</pre></details></div>
+
+<div class="ex" data-id="w01-l6-e7"><p class="q">Average order value per loyalty tier (treat a missing tier as <code>None</code>). Exclude cancelled orders. Round to 2 decimals.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT COALESCE(c.loyalty_tier, 'None') AS tier,
+       ROUND(AVG(o.total_amount), 2)    AS avg_order
+FROM orders o
+JOIN customers c ON c.customer_id = o.customer_id
+WHERE o.status &lt;&gt; 'Cancelled'
+GROUP BY tier
+ORDER BY avg_order DESC;</pre></details></div>
+
+<div class="ex" data-id="w01-l6-e8"><p class="q">Employees who earn more than their manager.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT e.full_name, e.salary, m.full_name AS manager, m.salary AS manager_salary
+FROM employees e
+JOIN employees m ON m.emp_id = e.manager_id
+WHERE e.salary &gt; m.salary;</pre><p>This is one of the most frequently asked SQL interview questions anywhere. Now you know it.</p></details></div>
+
+<div class="callout interview"><b>Rapid-fire theory: say each answer aloud in under 30 seconds</b>
+<p><b>DISTINCT vs GROUP BY?</b> Both can remove duplicates. GROUP BY also lets you aggregate per group.</p>
+<p><b>Can you use an alias in WHERE?</b> Not in standard SQL, because WHERE runs before SELECT. You can use it in ORDER BY. (SQLite and MySQL allow aliases in HAVING; don't rely on that.)</p>
+<p><b>What does a LEFT JOIN return when nothing matches?</b> The left row, with NULL in every right-side column.</p>
+<p><b>How would you check a UI order total against the database?</b> Find the order by its ID, compare <code>total_amount</code>, and also recompute it from <code>order_items</code> to catch header/line mismatches.</p>
+</div>
+
+<p>Finished? Tick the lesson complete. Next week: subqueries, window functions, and the data validation queries that make up a backend tester's toolkit.</p>
+</section>
+
+</body></html>

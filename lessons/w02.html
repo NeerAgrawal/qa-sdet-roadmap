@@ -1,0 +1,732 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>Week 2 lessons</title></head><body>
+
+<!-- ===================================================== L1 ===================================================== -->
+<section class="lesson" id="w02-l1">
+<p>A <b>subquery</b> is a query inside another query. A <b>CTE</b> (Common Table Expression) gives a subquery a name so you can read the logic from top to bottom. Together they let you break a hard question into small steps, which is exactly what interviewers want to see you do.</p>
+
+<h2>Subquery that returns one value</h2>
+<p>Products that cost more than the average product:</p>
+<pre class="run">SELECT product_name, price
+FROM products
+WHERE price &gt; (SELECT AVG(price) FROM products)
+ORDER BY price DESC;</pre>
+<p>The inner query runs first and returns one number. The outer query uses it like a constant.</p>
+
+<h2>Subquery that returns a list: IN</h2>
+<pre class="run">SELECT full_name
+FROM customers
+WHERE customer_id IN (SELECT customer_id FROM orders WHERE status = 'Cancelled');</pre>
+
+<h2>EXISTS and NOT EXISTS</h2>
+<p><code>EXISTS</code> asks "is there at least one matching row?" and stops as soon as it finds one. Customers who placed an order worth more than ₹1,500:</p>
+<pre class="run">SELECT c.full_name
+FROM customers c
+WHERE EXISTS (
+  SELECT 1 FROM orders o
+  WHERE o.customer_id = c.customer_id
+    AND o.total_amount &gt; 1500
+);</pre>
+<p>The inner query refers to <code>c</code> from the outer query. That makes it a <b>correlated subquery</b>: conceptually it runs once for each customer.</p>
+
+<div class="callout warn"><b>The NOT IN trap: a favourite interview question</b>
+<p>If the list inside <code>NOT IN</code> contains even one NULL, the whole condition becomes UNKNOWN and <b>no rows come back</b>. Vikram (Hyderabad) has a NULL email. Watch what happens:</p>
+<pre class="run">SELECT full_name
+FROM customers
+WHERE email NOT IN (SELECT email FROM customers WHERE city = 'Hyderabad');</pre>
+<p>Zero rows, with no error. <code>NOT EXISTS</code> doesn't have this problem, so prefer it for "not in" logic:</p>
+<pre class="run">SELECT c.full_name
+FROM customers c
+WHERE NOT EXISTS (
+  SELECT 1 FROM customers h
+  WHERE h.city = 'Hyderabad' AND h.email = c.email
+);</pre>
+</div>
+
+<h2>Correlated subquery for "compared with its own group"</h2>
+<p>Orders bigger than that same customer's average order:</p>
+<pre class="run">SELECT o.order_id, o.customer_id, o.total_amount
+FROM orders o
+WHERE o.total_amount &gt; (
+  SELECT AVG(o2.total_amount)
+  FROM orders o2
+  WHERE o2.customer_id = o.customer_id
+);</pre>
+
+<h2>Subquery in FROM (derived table)</h2>
+<pre class="run">SELECT tier, ROUND(AVG(spent)) AS avg_spent_per_customer
+FROM (
+  SELECT COALESCE(c.loyalty_tier, 'None') AS tier, c.customer_id, SUM(o.total_amount) AS spent
+  FROM customers c
+  JOIN orders o ON o.customer_id = c.customer_id
+  GROUP BY c.customer_id
+) AS per_customer
+GROUP BY tier;</pre>
+
+<h2>CTEs: the same idea, but readable</h2>
+<p><code>WITH name AS (...)</code> defines a named result you can use in the query below it. Here is the derived table above rewritten as a CTE:</p>
+<pre class="run">WITH per_customer AS (
+  SELECT c.customer_id,
+         COALESCE(c.loyalty_tier, 'None') AS tier,
+         SUM(o.total_amount) AS spent
+  FROM customers c
+  JOIN orders o ON o.customer_id = c.customer_id
+  GROUP BY c.customer_id
+)
+SELECT tier, ROUND(AVG(spent)) AS avg_spent_per_customer
+FROM per_customer
+GROUP BY tier;</pre>
+<p>You can chain several CTEs, separated by commas, each one using the ones before it. In interviews, CTEs make your thinking visible, and that earns marks.</p>
+
+<h3>Recursive CTEs: generating rows</h3>
+<p>A recursive CTE refers to itself. Testers use it to generate test data or a calendar. Here is every month of 2025 with its order count, <b>including months with zero orders</b>, which a plain GROUP BY can't show:</p>
+<pre class="run">WITH RECURSIVE months(m) AS (
+  SELECT '2025-01-01'
+  UNION ALL
+  SELECT date(m, '+1 month') FROM months WHERE m &lt; '2025-12-01'
+)
+SELECT strftime('%Y-%m', m) AS month, COUNT(o.order_id) AS orders
+FROM months
+LEFT JOIN orders o ON strftime('%Y-%m', o.order_date) = strftime('%Y-%m', m)
+GROUP BY month
+ORDER BY month;</pre>
+
+<div class="callout"><b>MySQL</b>CTEs and recursive CTEs need MySQL 8.0 or later. Many companies still run 5.7. If <code>WITH</code> fails there, use a derived table instead.</div>
+
+<div class="callout interview"><b>Interview questions</b>
+<p><b>Subquery vs JOIN: which is faster?</b> It depends. Modern optimisers often turn one into the other. Use whichever states the question most clearly, and check the execution plan if performance matters.</p>
+<p><b>What is a correlated subquery?</b> A subquery that uses a column from the outer query, so it is evaluated for each outer row.</p>
+<p><b>IN vs EXISTS?</b> IN compares a value against a list. EXISTS checks whether any row exists and stops at the first match. NOT EXISTS is safe with NULLs; NOT IN isn't.</p>
+<p><b>What is a CTE and why use one?</b> A named, temporary result defined with WITH. It makes queries easier to read and lets you reuse a step. Recursive CTEs can walk hierarchies or generate rows.</p>
+</div>
+
+<h2>Exercises</h2>
+<div class="ex" data-id="w02-l1-e1"><p class="q">Products that cost less than the average price of their <b>own category</b>.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT p.product_name, p.category, p.price
+FROM products p
+WHERE p.price &lt; (SELECT AVG(p2.price) FROM products p2 WHERE p2.category = p.category);</pre></details></div>
+
+<div class="ex" data-id="w02-l1-e2"><p class="q">Customers who have never placed an order, using <code>NOT EXISTS</code>.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT c.customer_id, c.full_name
+FROM customers c
+WHERE NOT EXISTS (SELECT 1 FROM orders o WHERE o.customer_id = c.customer_id);</pre></details></div>
+
+<div class="ex" data-id="w02-l1-e3"><p class="q">Customers who have bought a product from the Devices category. Use a subquery with IN, not a JOIN.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT full_name
+FROM customers
+WHERE customer_id IN (
+  SELECT o.customer_id
+  FROM orders o
+  WHERE o.order_id IN (
+    SELECT oi.order_id FROM order_items oi
+    WHERE oi.product_id IN (SELECT product_id FROM products WHERE category = 'Devices')
+  )
+);</pre></details></div>
+
+<div class="ex" data-id="w02-l1-e4"><p class="q">Each customer's largest order: show customer_id, order_id and amount.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT o.customer_id, o.order_id, o.total_amount
+FROM orders o
+WHERE o.total_amount = (
+  SELECT MAX(o2.total_amount) FROM orders o2 WHERE o2.customer_id = o.customer_id
+)
+ORDER BY o.customer_id;</pre></details></div>
+
+<div class="ex" data-id="w02-l1-e5"><p class="q">Using CTEs: work out each customer's total spend (excluding cancelled orders), then list the customers whose spend is above the average customer's spend.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">WITH spend AS (
+  SELECT customer_id, SUM(total_amount) AS spent
+  FROM orders
+  WHERE status &lt;&gt; 'Cancelled'
+  GROUP BY customer_id
+),
+avg_spend AS (
+  SELECT AVG(spent) AS avg_spent FROM spend
+)
+SELECT s.customer_id, c.full_name, s.spent
+FROM spend s
+CROSS JOIN avg_spend a
+LEFT JOIN customers c ON c.customer_id = s.customer_id
+WHERE s.spent &gt; a.avg_spent
+ORDER BY s.spent DESC;</pre></details></div>
+
+<div class="ex" data-id="w02-l1-e6"><p class="q">Use a recursive CTE to produce the numbers 1 to 10. (This is how you generate bulk test rows.)</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">WITH RECURSIVE n(x) AS (
+  SELECT 1
+  UNION ALL
+  SELECT x + 1 FROM n WHERE x &lt; 10
+)
+SELECT x, 'QA_AUTO_User' || x AS test_username FROM n;</pre></details></div>
+</section>
+
+<!-- ===================================================== L2 ===================================================== -->
+<section class="lesson" id="w02-l2">
+<p>Window functions are the topic that separates "knows SQL" from "is good at SQL" in interviews. They calculate across a set of related rows <b>without collapsing them</b> the way GROUP BY does. You keep every row and get a group-level number next to it.</p>
+
+<h2>The idea: OVER()</h2>
+<p>Compare each employee's salary with their department's average, keeping every row:</p>
+<pre class="run">SELECT full_name, dept, salary,
+       ROUND(AVG(salary) OVER (PARTITION BY dept)) AS dept_avg,
+       salary - ROUND(AVG(salary) OVER (PARTITION BY dept)) AS diff
+FROM employees
+ORDER BY dept, salary DESC;</pre>
+<ul>
+  <li><code>OVER (...)</code> turns an aggregate into a window function.</li>
+  <li><code>PARTITION BY dept</code> is like GROUP BY, but the rows are kept.</li>
+  <li><code>OVER ()</code> with nothing inside uses the whole table as one window.</li>
+</ul>
+
+<h2>Ranking: ROW_NUMBER, RANK, DENSE_RANK</h2>
+<p>The difference only shows up when there are ties. Asha and Gauri both earn 150,000; Sana and Kiran both earn 185,000:</p>
+<pre class="run">SELECT full_name, salary,
+       ROW_NUMBER() OVER (ORDER BY salary DESC) AS row_num,
+       RANK()       OVER (ORDER BY salary DESC) AS rnk,
+       DENSE_RANK() OVER (ORDER BY salary DESC) AS dense_rnk
+FROM employees;</pre>
+<div class="tablewrap"><table class="ref">
+<tr><th>Function</th><th>On a tie</th><th>Sequence example</th></tr>
+<tr><td><code>ROW_NUMBER()</code></td><td>different numbers anyway (arbitrary)</td><td>1, 2, 3, 4</td></tr>
+<tr><td><code>RANK()</code></td><td>same number, then <b>skips</b></td><td>1, 2, 2, 4</td></tr>
+<tr><td><code>DENSE_RANK()</code></td><td>same number, <b>no gap</b></td><td>1, 2, 2, 3</td></tr>
+</table></div>
+
+<h3>Top-N per group</h3>
+<p>Highest-paid person in each department. You can't filter a window function in WHERE, because it's calculated after WHERE runs. Wrap it in a CTE first:</p>
+<pre class="run">WITH ranked AS (
+  SELECT full_name, dept, salary,
+         RANK() OVER (PARTITION BY dept ORDER BY salary DESC) AS rnk
+  FROM employees
+)
+SELECT dept, full_name, salary
+FROM ranked
+WHERE rnk = 1;</pre>
+<p>Support returns two people because Nisha and Tarun tie. With ROW_NUMBER you'd get only one of them, picked arbitrarily. In an interview, saying "do you want ties included?" shows maturity.</p>
+
+<h2>LAG and LEAD: looking at the previous or next row</h2>
+<p>For each customer, the previous order date and the number of days since it:</p>
+<pre class="run">SELECT customer_id, order_id, order_date,
+       LAG(order_date) OVER (PARTITION BY customer_id ORDER BY order_date) AS prev_order,
+       julianday(order_date)
+         - julianday(LAG(order_date) OVER (PARTITION BY customer_id ORDER BY order_date)) AS days_since_prev
+FROM orders
+ORDER BY customer_id, order_date;</pre>
+<p><code>LEAD()</code> looks at the next row instead. Typical uses: change between releases, time between status changes, finding gaps in sequences.</p>
+
+<h2>Running totals and moving averages</h2>
+<p>Add <code>ORDER BY</code> inside OVER and SUM becomes cumulative:</p>
+<pre class="run">SELECT order_date, order_id, total_amount,
+       SUM(total_amount) OVER (ORDER BY order_date, order_id) AS running_total
+FROM orders
+WHERE status = 'Delivered';</pre>
+<p>A <b>frame</b> limits the window to nearby rows. Here is a 3-order moving average:</p>
+<pre class="run">SELECT order_date, total_amount,
+       ROUND(AVG(total_amount) OVER (ORDER BY order_date
+                                     ROWS BETWEEN 2 PRECEDING AND CURRENT ROW), 2) AS moving_avg_3
+FROM orders
+WHERE status = 'Delivered';</pre>
+
+<h2>NTILE and percent of total</h2>
+<pre class="run">SELECT product_name, price,
+       NTILE(4) OVER (ORDER BY price) AS price_quartile,
+       ROUND(100.0 * price / SUM(price) OVER (), 1) AS pct_of_catalogue
+FROM products;</pre>
+
+<div class="callout"><b>MySQL</b>Window functions need MySQL 8.0+. In 5.7, interviewers expect the older workaround with a self-join or a correlated subquery. Know that it exists, even if you'd never choose it.</div>
+
+<div class="callout interview"><b>Interview questions</b>
+<p><b>Difference between RANK, DENSE_RANK and ROW_NUMBER?</b> Give the 1-2-2-4 / 1-2-2-3 / 1-2-3-4 example. Then say which you'd use for "Nth highest salary" (DENSE_RANK) and for removing duplicates (ROW_NUMBER).</p>
+<p><b>GROUP BY vs window function?</b> GROUP BY returns one row per group. A window function keeps every row and adds the group-level value next to it.</p>
+<p><b>Why can't you use ROW_NUMBER in WHERE?</b> Window functions are computed in the SELECT step, after WHERE. Wrap the query in a CTE or subquery and filter outside it.</p>
+</div>
+
+<h2>Exercises</h2>
+<div class="ex" data-id="w02-l2-e1"><p class="q">Rank products by price within each category, most expensive = 1.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT category, product_name, price,
+       RANK() OVER (PARTITION BY category ORDER BY price DESC) AS price_rank
+FROM products
+ORDER BY category, price_rank;</pre></details></div>
+
+<div class="ex" data-id="w02-l2-e2"><p class="q">Find the 2nd highest salary, and everyone who earns it.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">WITH r AS (
+  SELECT full_name, salary, DENSE_RANK() OVER (ORDER BY salary DESC) AS rnk
+  FROM employees
+)
+SELECT full_name, salary FROM r WHERE rnk = 2;</pre><p>Change 2 to any N for "Nth highest". Use DENSE_RANK so that ties don't push the next salary down.</p></details></div>
+
+<div class="ex" data-id="w02-l2-e3"><p class="q">For each customer, number their orders 1, 2, 3… by date, and show only their <b>second</b> order.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">WITH numbered AS (
+  SELECT customer_id, order_id, order_date,
+         ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY order_date) AS n
+  FROM orders
+)
+SELECT * FROM numbered WHERE n = 2;</pre></details></div>
+
+<div class="ex" data-id="w02-l2-e4"><p class="q">Which month (or months) had the most orders? Handle ties properly. In Week 1, LIMIT 1 hid them.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">WITH m AS (
+  SELECT strftime('%Y-%m', order_date) AS month, COUNT(*) AS orders
+  FROM orders
+  GROUP BY month
+), r AS (
+  SELECT month, orders, RANK() OVER (ORDER BY orders DESC) AS rnk FROM m
+)
+SELECT month, orders FROM r WHERE rnk = 1;</pre><p>Five months tie at 3 orders each. LIMIT 1 would have shown just one of them, and the report would have been misleading.</p></details></div>
+
+<div class="ex" data-id="w02-l2-e5"><p class="q">For each defect, show how many days after the <b>previous defect in the same module</b> it was raised.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT module, defect_id, created_on,
+       julianday(created_on)
+         - julianday(LAG(created_on) OVER (PARTITION BY module ORDER BY created_on)) AS days_after_prev
+FROM defects
+ORDER BY module, created_on;</pre></details></div>
+
+<div class="ex" data-id="w02-l2-e6"><p class="q"><b>Data check:</b> use ROW_NUMBER to find the duplicate customer rows by email. Keep the first (lowest id) as the original and list the others.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">WITH d AS (
+  SELECT customer_id, full_name, email,
+         ROW_NUMBER() OVER (PARTITION BY email ORDER BY customer_id) AS rn
+  FROM customers
+  WHERE email IS NOT NULL
+)
+SELECT * FROM d WHERE rn &gt; 1;</pre></details></div>
+
+<div class="ex" data-id="w02-l2-e7"><p class="q">Each department's share of the total salary bill, as a percentage with 1 decimal.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT dept,
+       SUM(salary) AS dept_total,
+       ROUND(100.0 * SUM(salary) / SUM(SUM(salary)) OVER (), 1) AS pct
+FROM employees
+GROUP BY dept
+ORDER BY pct DESC;</pre><p><code>SUM(SUM(salary)) OVER ()</code> is a window over the grouped result. It looks odd at first, but it's valid and very useful.</p></details></div>
+</section>
+
+<!-- ===================================================== L3 ===================================================== -->
+<section class="lesson" id="w02-l3">
+<p>Testers don't only read data; they create it and clean it up. This lesson covers INSERT, UPDATE and DELETE, transactions, constraints and indexes, plus the habits that stop you breaking a shared test environment.</p>
+<div class="callout"><b>Safe to experiment</b>Changes here only affect your browser's copy of the database. Use <b>Reset data</b> in the side panel whenever you want to start fresh. If a query fails part-way through a transaction, press Reset as well.</div>
+
+<h2>INSERT</h2>
+<pre class="run">INSERT INTO customers (customer_id, full_name, email, city, signup_date, loyalty_tier)
+VALUES (500, 'QA_AUTO_Asha', 'qa.auto.asha@test.com', 'Pune', date('now'), NULL);
+
+SELECT * FROM customers WHERE customer_id = 500;</pre>
+<p>Always list the columns. If someone adds a column to the table later, an INSERT without a column list breaks.</p>
+<p>Several rows at once, or copied from a query:</p>
+<pre class="run">INSERT INTO customers (customer_id, full_name, email, city)
+VALUES (501, 'QA_AUTO_Ben', 'qa.auto.ben@test.com', 'Delhi'),
+       (502, 'QA_AUTO_Cara', 'qa.auto.cara@test.com', 'Kochi');
+
+CREATE TABLE IF NOT EXISTS gold_customers AS
+SELECT * FROM customers WHERE loyalty_tier = 'Gold';
+
+SELECT * FROM gold_customers;</pre>
+
+<h2>UPDATE and DELETE</h2>
+<div class="callout warn"><b>The habit that saves careers</b>Before any UPDATE or DELETE, run a <b>SELECT with the same WHERE</b> and check the row count. An UPDATE without WHERE changes <i>every row in the table</i>.</div>
+<pre class="run">-- 1. check what will change
+SELECT product_id, product_name, is_active FROM products WHERE product_id = 108;
+</pre>
+<pre class="run">-- 2. change it
+UPDATE products SET is_active = 1 WHERE product_id = 108;
+SELECT product_id, product_name, is_active FROM products WHERE product_id = 108;</pre>
+<pre class="run">DELETE FROM customers WHERE full_name LIKE 'QA_AUTO_%';
+SELECT COUNT(*) AS remaining_test_users FROM customers WHERE full_name LIKE 'QA_AUTO_%';</pre>
+
+<h3>Test data habits</h3>
+<ul>
+  <li><b>Use a recognisable prefix</b> such as <code>QA_AUTO_</code> or a test-run ID on every record you create, so cleanup is one safe DELETE.</li>
+  <li><b>Use IDs in a reserved range</b> (e.g. 500+) or let the database generate them.</li>
+  <li><b>Clean up after yourself</b> in a teardown step. In Week 3 this becomes a pytest fixture that inserts the data, yields it to the test, and deletes it afterwards.</li>
+  <li><b>Never run UPDATE or DELETE on production.</b> Read-only access is the norm for testers there.</li>
+</ul>
+
+<h2>Transactions</h2>
+<p>A transaction groups changes so they all happen or none do. <code>ROLLBACK</code> undoes everything since <code>BEGIN</code>; <code>COMMIT</code> makes it permanent.</p>
+<pre class="run">BEGIN;
+INSERT INTO orders (order_id, customer_id, order_date, status, total_amount)
+VALUES (5000, 1, date('now'), 'Placed', 70);
+INSERT INTO order_items (item_id, order_id, product_id, quantity, unit_price)
+VALUES (5000, 5000, 101, 2, 35);
+SELECT * FROM orders WHERE order_id = 5000;
+ROLLBACK;</pre>
+<pre class="run">SELECT COUNT(*) AS still_there FROM orders WHERE order_id = 5000;</pre>
+<p>The insert was visible inside the transaction and gone after ROLLBACK. Some test frameworks wrap every test in a transaction and roll it back, which keeps the database clean automatically.</p>
+
+<h3>ACID</h3>
+<div class="tablewrap"><table class="ref">
+<tr><th>Letter</th><th>Meaning</th><th>In plain words</th></tr>
+<tr><td>A</td><td>Atomicity</td><td>All of the transaction happens, or none of it</td></tr>
+<tr><td>C</td><td>Consistency</td><td>Constraints hold before and after</td></tr>
+<tr><td>I</td><td>Isolation</td><td>Transactions running at the same time don't see each other's half-done work</td></tr>
+<tr><td>D</td><td>Durability</td><td>Once committed, it survives a crash</td></tr>
+</table></div>
+
+<h2>Constraints: rules the database enforces</h2>
+<pre class="run">DROP TABLE IF EXISTS test_cases;
+CREATE TABLE test_cases (
+  tc_id     INTEGER PRIMARY KEY,
+  title     TEXT NOT NULL,
+  module    TEXT NOT NULL,
+  priority  TEXT CHECK (priority IN ('P1','P2','P3','P4')),
+  status    TEXT DEFAULT 'Draft',
+  ext_ref   TEXT UNIQUE
+);
+INSERT INTO test_cases (tc_id, title, module, priority, ext_ref)
+VALUES (1, 'Login with valid credentials', 'Account', 'P1', 'ADO-101');
+SELECT * FROM test_cases;</pre>
+<p>Now break each rule on purpose and read the error message. This is negative testing at the database level:</p>
+<pre class="run">INSERT INTO test_cases (tc_id, title, module, priority) VALUES (2, 'Bad priority', 'Account', 'P9');</pre>
+<pre class="run">INSERT INTO test_cases (tc_id, title, module, priority, ext_ref) VALUES (3, 'Dup ref', 'Account', 'P2', 'ADO-101');</pre>
+<pre class="run">INSERT INTO test_cases (tc_id, module, priority) VALUES (4, 'Account', 'P2');</pre>
+
+<h3>Foreign keys</h3>
+<p>SQLite only enforces foreign keys when you switch them on. That's why our database contains orphans:</p>
+<pre class="run">PRAGMA foreign_keys = ON;
+INSERT INTO order_items (item_id, order_id, product_id, quantity, unit_price)
+VALUES (6000, 8888, 101, 1, 35);</pre>
+<p>MySQL's InnoDB enforces foreign keys by default, but teams sometimes drop them for performance or during data migrations. That's when your orphan checks earn their keep.</p>
+
+<h2>DELETE vs TRUNCATE vs DROP</h2>
+<div class="tablewrap"><table class="ref">
+<tr><th></th><th>DELETE</th><th>TRUNCATE</th><th>DROP</th></tr>
+<tr><td>Removes</td><td>Rows (WHERE allowed)</td><td>All rows</td><td>The whole table and its structure</td></tr>
+<tr><td>Type</td><td>DML</td><td>DDL</td><td>DDL</td></tr>
+<tr><td>Rollback</td><td>Yes</td><td>Usually no (MySQL commits implicitly)</td><td>Usually no</td></tr>
+<tr><td>Speed on large tables</td><td>Slower, row by row</td><td>Fast</td><td>Fast</td></tr>
+<tr><td>Resets auto-increment</td><td>No</td><td>Yes</td><td>The table is gone</td></tr>
+</table></div>
+<p>SQLite has no TRUNCATE; <code>DELETE FROM t;</code> does the same job.</p>
+
+<h2>Indexes</h2>
+<p>An index is like a book's index: it lets the database find rows without reading the whole table. Ask SQLite how it would run a query:</p>
+<pre class="run">EXPLAIN QUERY PLAN
+SELECT * FROM orders WHERE customer_id = 4;</pre>
+<p><code>SCAN orders</code> means it reads every row. Add an index and ask again:</p>
+<pre class="run">CREATE INDEX IF NOT EXISTS idx_orders_customer ON orders(customer_id);
+EXPLAIN QUERY PLAN
+SELECT * FROM orders WHERE customer_id = 4;</pre>
+<p>Now it says <code>SEARCH … USING INDEX</code>. Indexes speed up reads but slow down writes slightly and take space. Interviewers like it when you mention both sides.</p>
+
+<div class="callout interview"><b>Interview questions</b>
+<p><b>DDL vs DML vs DCL vs TCL?</b> DDL defines structure (CREATE, ALTER, DROP, TRUNCATE). DML changes data (INSERT, UPDATE, DELETE). DCL controls access (GRANT, REVOKE). TCL controls transactions (COMMIT, ROLLBACK, SAVEPOINT).</p>
+<p><b>Clustered vs non-clustered index?</b> A clustered index decides the physical order of the rows; there's one per table, usually the primary key. A non-clustered index is a separate structure that points to the rows; a table can have many.</p>
+<p><b>How do you manage test data?</b> "I create it with SQL or API calls in setup, tag it with a run-specific prefix, and delete it in teardown. For shared environments I avoid modifying data other teams depend on. At Rite Aid I created test patients with SQL scripts and…" Use your own experience.</p>
+</div>
+
+<h2>Exercises</h2>
+<p>Press <b>Reset data</b> before you start, so earlier experiments don't confuse your results.</p>
+<div class="ex" data-id="w02-l3-e1"><p class="q">Insert a test customer: id 600, name <code>QA_AUTO_Neer</code>, email <code>qa.auto.neer@test.com</code>, city Bengaluru, signup today, tier Gold. Then select it back.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">INSERT INTO customers (customer_id, full_name, email, city, signup_date, loyalty_tier)
+VALUES (600, 'QA_AUTO_Neer', 'qa.auto.neer@test.com', 'Bengaluru', date('now'), 'Gold');
+SELECT * FROM customers WHERE customer_id = 600;</pre></details></div>
+
+<div class="ex" data-id="w02-l3-e2"><p class="q">In one transaction, create order 6001 for customer 600 with two line items (2 × product 102 and 1 × product 105) and the correct total. Check your work with a query inside the transaction, then roll it back.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">BEGIN;
+INSERT INTO orders (order_id, customer_id, order_date, status, total_amount)
+VALUES (6001, 600, date('now'), 'Placed', 2*249 + 199);
+INSERT INTO order_items (item_id, order_id, product_id, quantity, unit_price)
+VALUES (6001, 6001, 102, 2, 249),
+       (6002, 6001, 105, 1, 199);
+SELECT o.order_id, o.total_amount, SUM(oi.quantity * oi.unit_price) AS items_total
+FROM orders o JOIN order_items oi ON oi.order_id = o.order_id
+WHERE o.order_id = 6001
+GROUP BY o.order_id;
+ROLLBACK;</pre></details></div>
+
+<div class="ex" data-id="w02-l3-e3"><p class="q">Upgrade every Bronze customer who has at least one Delivered order to Silver. Run the matching SELECT first.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT customer_id, full_name, loyalty_tier
+FROM customers
+WHERE loyalty_tier = 'Bronze'
+  AND customer_id IN (SELECT customer_id FROM orders WHERE status = 'Delivered');</pre><p>The SELECT returns nobody. Vikram and Karan have Shipped and Returned orders, not Delivered ones. An UPDATE with this WHERE would change 0 rows, and running the SELECT first told you so before you touched anything.</p><pre class="run">UPDATE customers
+SET loyalty_tier = 'Silver'
+WHERE loyalty_tier = 'Bronze'
+  AND customer_id IN (SELECT customer_id FROM orders WHERE status = 'Delivered');</pre></details></div>
+
+<div class="ex" data-id="w02-l3-e4"><p class="q">Delete every customer whose name starts with <code>QA_AUTO_</code>, and confirm none are left.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">DELETE FROM customers WHERE full_name LIKE 'QA_AUTO_%';
+SELECT COUNT(*) AS left_over FROM customers WHERE full_name LIKE 'QA_AUTO_%';</pre></details></div>
+
+<div class="ex" data-id="w02-l3-e5"><p class="q">Create a table <code>test_runs</code> with: run_id (primary key), suite (required), started_at (required), passed and failed (whole numbers, never negative), and env (only <code>QA</code>, <code>UAT</code> or <code>STAGE</code>). Insert one valid row and one row that breaks a rule.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">DROP TABLE IF EXISTS test_runs;
+CREATE TABLE test_runs (
+  run_id     INTEGER PRIMARY KEY,
+  suite      TEXT NOT NULL,
+  started_at TEXT NOT NULL,
+  passed     INTEGER CHECK (passed &gt;= 0),
+  failed     INTEGER CHECK (failed &gt;= 0),
+  env        TEXT CHECK (env IN ('QA','UAT','STAGE'))
+);
+INSERT INTO test_runs VALUES (1, 'Regression', '2025-08-10 21:00', 412, 3, 'UAT');
+INSERT INTO test_runs VALUES (2, 'Smoke', '2025-08-11 09:00', 20, -1, 'PROD');</pre></details></div>
+</section>
+
+<!-- ===================================================== L4 ===================================================== -->
+<section class="lesson" id="w02-l4">
+<p>This is the lesson that makes you valuable on a project. Backend or database testing means checking that the data is <b>right</b>, not just that the screen looks right. Our practice database has defects planted in it. By the end of this lesson you will have found all of them, and written each check so it can run automatically.</p>
+
+<h2>The rule: a check returns the failing rows</h2>
+<p>Write every validation query so that <b>zero rows = PASS</b>. Then automating it is trivial: run the query and assert the result is empty. If it isn't, the rows it returned are your defect evidence.</p>
+
+<h2>The six kinds of data checks</h2>
+<div class="tablewrap"><table class="ref">
+<tr><th>Dimension</th><th>Question</th><th>SQL pattern</th></tr>
+<tr><td>Completeness</td><td>Is anything missing?</td><td><code>COUNT</code> source vs target; <code>IS NULL</code> on required fields</td></tr>
+<tr><td>Uniqueness</td><td>Is anything duplicated?</td><td><code>GROUP BY … HAVING COUNT(*) &gt; 1</code></td></tr>
+<tr><td>Validity</td><td>Are values allowed?</td><td><code>WHERE col NOT IN (allowed list)</code>, ranges, formats</td></tr>
+<tr><td>Referential integrity</td><td>Does every reference point to something real?</td><td><code>LEFT JOIN … IS NULL</code></td></tr>
+<tr><td>Consistency</td><td>Do related numbers agree?</td><td>Header total vs sum of lines; payment vs order</td></tr>
+<tr><td>Timeliness / logic</td><td>Do dates and states make sense?</td><td>Closed without closed date; end before start</td></tr>
+</table></div>
+
+<h2>Worked examples</h2>
+<h3>Completeness: required fields</h3>
+<pre class="run">SELECT customer_id, full_name, email
+FROM customers
+WHERE email IS NULL OR TRIM(email) = '';</pre>
+
+<h3>Validity: values outside the allowed list</h3>
+<pre class="run">SELECT order_id, status
+FROM orders
+WHERE status NOT IN ('Placed','Shipped','Delivered','Cancelled','Returned');</pre>
+<p>Zero rows: PASS. Not every check finds something, and that's the point.</p>
+
+<h3>Referential integrity: orphans on both sides</h3>
+<pre class="run">SELECT 'order without customer' AS issue, o.order_id AS id
+FROM orders o LEFT JOIN customers c ON c.customer_id = o.customer_id
+WHERE c.customer_id IS NULL
+UNION ALL
+SELECT 'item without order', oi.item_id
+FROM order_items oi LEFT JOIN orders o ON o.order_id = oi.order_id
+WHERE o.order_id IS NULL;</pre>
+
+<h3>Consistency: reconciliation</h3>
+<p>Does each order's <code>total_amount</code> equal the sum of its line items? Use LEFT JOIN so orders with <i>no</i> items are caught too, and compare with a small tolerance, because money stored as decimals can round:</p>
+<pre class="run">SELECT o.order_id,
+       o.total_amount,
+       COALESCE(SUM(oi.quantity * oi.unit_price), 0) AS items_total
+FROM orders o
+LEFT JOIN order_items oi ON oi.order_id = o.order_id
+GROUP BY o.order_id, o.total_amount
+HAVING ABS(o.total_amount - COALESCE(SUM(oi.quantity * oi.unit_price), 0)) &gt; 0.01;</pre>
+<p>Three failures, each a different bug: 1003 has a duplicated line, 1010's header is wrong, and 1017 has no lines at all.</p>
+
+<h2>Source-to-target testing (migrations and ETL)</h2>
+<p>When data moves from one system to another, you prove nothing was lost or changed. Let's simulate a buggy migration:</p>
+<pre class="run">DROP TABLE IF EXISTS orders_target;
+CREATE TABLE orders_target AS SELECT * FROM orders WHERE order_id &lt;&gt; 1009;  -- a row is lost
+UPDATE orders_target SET total_amount = 800 WHERE order_id = 1010;          -- a value changes
+SELECT (SELECT COUNT(*) FROM orders) AS source_rows,
+       (SELECT COUNT(*) FROM orders_target) AS target_rows;</pre>
+<p>Counts catch the lost row but not the changed value. <code>EXCEPT</code> compares complete rows:</p>
+<pre class="run">SELECT 'in source, not in target' AS side, * FROM (SELECT * FROM orders EXCEPT SELECT * FROM orders_target)
+UNION ALL
+SELECT 'in target, not in source', * FROM (SELECT * FROM orders_target EXCEPT SELECT * FROM orders);</pre>
+<div class="callout"><b>MySQL</b><code>EXCEPT</code> and <code>INTERSECT</code> arrived in MySQL 8.0.31. On older versions, use a LEFT JOIN on the key and compare each column. Your Beyond Compare work at Sydney Water was the same idea applied to payloads; mention that link in interviews.</div>
+
+<h2>Turning checks into automated tests</h2>
+<p>This is a preview of Week 3. Each query becomes one pytest test, and the failing rows appear in the failure message:</p>
+<pre class="code">import sqlite3   # use pymysql / mysql-connector for MySQL
+import pytest
+
+CHECKS = {
+    "orphan_order_items": """
+        SELECT oi.item_id FROM order_items oi
+        LEFT JOIN orders o ON o.order_id = oi.order_id
+        WHERE o.order_id IS NULL""",
+    "duplicate_emails": """
+        SELECT email FROM customers WHERE email IS NOT NULL
+        GROUP BY email HAVING COUNT(*) &gt; 1""",
+}
+
+@pytest.fixture(scope="session")
+def db():
+    conn = sqlite3.connect("shop.db")
+    yield conn
+    conn.close()
+
+@pytest.mark.parametrize("name", CHECKS)
+def test_data_check(db, name):
+    rows = db.execute(CHECKS[name]).fetchall()
+    assert rows == [], f"{name} failed for: {rows}"</pre>
+<p>Run it nightly in CI and you have a data-quality monitor. That's a strong project to describe in an interview.</p>
+
+<div class="callout interview"><b>Interview questions</b>
+<p><b>How do you test a database / what is backend testing?</b> Verify that UI and API actions write the correct data, then check integrity (keys and orphans), uniqueness, required fields, allowed values, and consistency between related tables. For migrations: counts, then a full row comparison, then spot checks on key business fields.</p>
+<p><b>How would you test an ETL job?</b> Check source vs target counts, use EXCEPT or a row-by-row comparison, check that transformation rules were applied correctly, check NULLs and defaults, duplicates, rejected records, and run time against the SLA.</p>
+<p><b>You placed an order in the UI. What would you check in the database?</b> The order header (customer, status, total, timestamps), the line items (products, quantities, prices, totals that reconcile), the payment row, stock reduction, the audit or log entries, and that no duplicate order was created on a double click. That last one was a real Critical defect in our table, #12.</p>
+</div>
+
+<h2>Exercises: find every planted defect</h2>
+<div class="ex" data-id="w02-l4-e1"><p class="q">Duplicate line items: the same product appearing more than once in the same order.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT order_id, product_id, COUNT(*) AS lines
+FROM order_items
+GROUP BY order_id, product_id
+HAVING COUNT(*) &gt; 1;</pre></details></div>
+
+<div class="ex" data-id="w02-l4-e2"><p class="q">Orders that have no line items at all.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT o.order_id, o.status, o.total_amount
+FROM orders o
+WHERE NOT EXISTS (SELECT 1 FROM order_items oi WHERE oi.order_id = o.order_id);</pre></details></div>
+
+<div class="ex" data-id="w02-l4-e3"><p class="q">Delivered orders that have no <b>successful</b> payment.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT o.order_id, o.total_amount
+FROM orders o
+WHERE o.status = 'Delivered'
+  AND NOT EXISTS (
+    SELECT 1 FROM payments p
+    WHERE p.order_id = o.order_id AND p.status = 'Success'
+  );</pre><p>Order 1013 has a Failed payment <i>and</i> a Success payment (a retry), so it correctly passes. Only checking "has a payment row" would miss 1007 if it had a failed one.</p></details></div>
+
+<div class="ex" data-id="w02-l4-e4"><p class="q">Successful payments whose amount doesn't match the order total.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT p.payment_id, p.order_id, p.amount, o.total_amount
+FROM payments p
+JOIN orders o ON o.order_id = p.order_id
+WHERE p.status = 'Success'
+  AND ABS(p.amount - o.total_amount) &gt; 0.01;</pre><p>Order 1018 was undercharged by ₹9. Note that 1010 <i>passes</i> this check, because its payment matches its wrong header. Only the line-item reconciliation catches 1010. One check is never enough.</p></details></div>
+
+<div class="ex" data-id="w02-l4-e5"><p class="q">Defects whose status and closed date disagree: Closed with no closed_on, or not Closed but with a closed_on.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT defect_id, status, closed_on
+FROM defects
+WHERE (status = 'Closed' AND closed_on IS NULL)
+   OR (status &lt;&gt; 'Closed' AND closed_on IS NOT NULL);</pre></details></div>
+
+<div class="ex" data-id="w02-l4-e6"><p class="q">Line items sold at a price different from the product's current price. Is every result a defect? Think before you answer.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT oi.item_id, oi.order_id, p.product_name, oi.unit_price, p.price
+FROM order_items oi
+JOIN products p ON p.product_id = oi.product_id
+WHERE oi.unit_price &lt;&gt; p.price;</pre><p>Zero rows here. In a real system, though, prices change over time, so a mismatch might be correct historical data. A good tester checks the business rule before raising a defect. Say this in interviews.</p></details></div>
+
+<div class="ex" data-id="w02-l4-e7"><p class="q"><b>Capstone:</b> write one query that produces a data health report, with one row per check and its number of failures. Include at least: orders without customer, items without order, duplicate emails, missing emails, header/line mismatches, delivered-but-unpaid, and payment mismatches.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT 'orders_without_customer' AS check_name, COUNT(*) AS failures
+FROM orders o LEFT JOIN customers c ON c.customer_id = o.customer_id WHERE c.customer_id IS NULL
+UNION ALL
+SELECT 'items_without_order', COUNT(*)
+FROM order_items oi LEFT JOIN orders o ON o.order_id = oi.order_id WHERE o.order_id IS NULL
+UNION ALL
+SELECT 'duplicate_emails', COUNT(*)
+FROM (SELECT email FROM customers WHERE email IS NOT NULL GROUP BY email HAVING COUNT(*) &gt; 1)
+UNION ALL
+SELECT 'missing_emails', COUNT(*) FROM customers WHERE email IS NULL
+UNION ALL
+SELECT 'header_line_mismatch', COUNT(*)
+FROM (SELECT o.order_id FROM orders o LEFT JOIN order_items oi ON oi.order_id = o.order_id
+      GROUP BY o.order_id, o.total_amount
+      HAVING ABS(o.total_amount - COALESCE(SUM(oi.quantity * oi.unit_price), 0)) &gt; 0.01)
+UNION ALL
+SELECT 'delivered_unpaid', COUNT(*)
+FROM orders o WHERE o.status = 'Delivered'
+  AND NOT EXISTS (SELECT 1 FROM payments p WHERE p.order_id = o.order_id AND p.status = 'Success')
+UNION ALL
+SELECT 'payment_mismatch', COUNT(*)
+FROM payments p JOIN orders o ON o.order_id = p.order_id
+WHERE p.status = 'Success' AND ABS(p.amount - o.total_amount) &gt; 0.01;</pre><p>Save this query in your <code>sql-for-qa</code> repo. It's a portfolio piece, and in Week 3 you'll turn each line into a pytest test.</p></details></div>
+</section>
+
+<!-- ===================================================== L5 ===================================================== -->
+<section class="lesson" id="w02-l5">
+<p>These are the SQL questions that come up again and again in QA and SDET interviews in India. Solve each one in the editor before you look at the answer, and practise explaining it out loud. The theory section after that has short model answers to learn.</p>
+<div class="callout"><b>Before you start</b>Press <b>Reset data</b> in the side panel, so your earlier changes don't affect the answers.</div>
+
+<h2>Classic query questions</h2>
+<div class="ex" data-id="w02-l5-e1"><p class="q"><b>Nth highest salary.</b> Find the 3rd highest distinct salary. Interviewers often ask for <i>three different ways</i>.</p>
+<details class="ans"><summary>Show answer</summary>
+<p>1. LIMIT/OFFSET (simple, but you must remember DISTINCT):</p>
+<pre class="run">SELECT DISTINCT salary FROM employees ORDER BY salary DESC LIMIT 1 OFFSET 2;</pre>
+<p>2. DENSE_RANK (best: handles ties and returns the people):</p>
+<pre class="run">WITH r AS (SELECT full_name, salary, DENSE_RANK() OVER (ORDER BY salary DESC) AS rnk FROM employees)
+SELECT full_name, salary FROM r WHERE rnk = 3;</pre>
+<p>3. Correlated subquery (works on any database, even without window functions):</p>
+<pre class="run">SELECT DISTINCT e.salary
+FROM employees e
+WHERE 2 = (SELECT COUNT(DISTINCT e2.salary) FROM employees e2 WHERE e2.salary &gt; e.salary);</pre>
+<p>For N, the number in method 3 is N−1.</p></details></div>
+
+<div class="ex" data-id="w02-l5-e2"><p class="q"><b>Delete duplicates, keeping one.</b> Make a copy of customers, then delete duplicate emails from the copy, keeping the row with the lowest id.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">DROP TABLE IF EXISTS customers_copy;
+CREATE TABLE customers_copy AS SELECT * FROM customers;
+
+DELETE FROM customers_copy
+WHERE email IS NOT NULL
+  AND customer_id NOT IN (
+    SELECT MIN(customer_id) FROM customers_copy
+    WHERE email IS NOT NULL
+    GROUP BY email
+  );
+
+SELECT customer_id, full_name, email FROM customers_copy ORDER BY customer_id;</pre>
+<p>The ROW_NUMBER version is also worth knowing:</p>
+<pre class="run">DELETE FROM customers_copy
+WHERE customer_id IN (
+  SELECT customer_id FROM (
+    SELECT customer_id, ROW_NUMBER() OVER (PARTITION BY email ORDER BY customer_id) AS rn
+    FROM customers_copy WHERE email IS NOT NULL
+  ) WHERE rn &gt; 1
+);</pre></details></div>
+
+<div class="ex" data-id="w02-l5-e3"><p class="q"><b>Department with the highest average salary.</b> Show the department and its average.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">WITH d AS (
+  SELECT dept, AVG(salary) AS avg_sal FROM employees GROUP BY dept
+)
+SELECT dept, ROUND(avg_sal) AS avg_salary
+FROM d
+WHERE avg_sal = (SELECT MAX(avg_sal) FROM d);</pre><p>Using <code>= MAX</code> rather than <code>LIMIT 1</code> returns every department if there's a tie.</p></details></div>
+
+<div class="ex" data-id="w02-l5-e4"><p class="q"><b>Customers whose every order was Delivered</b> (and who have at least one order).</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT c.customer_id, c.full_name, COUNT(*) AS orders
+FROM customers c
+JOIN orders o ON o.customer_id = c.customer_id
+GROUP BY c.customer_id, c.full_name
+HAVING SUM(CASE WHEN o.status &lt;&gt; 'Delivered' THEN 1 ELSE 0 END) = 0;</pre></details></div>
+
+<div class="ex" data-id="w02-l5-e5"><p class="q"><b>Pivot:</b> one row per month, with columns for the number of Delivered, Cancelled and Other orders.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT strftime('%Y-%m', order_date) AS month,
+       SUM(CASE WHEN status = 'Delivered' THEN 1 ELSE 0 END) AS delivered,
+       SUM(CASE WHEN status = 'Cancelled' THEN 1 ELSE 0 END) AS cancelled,
+       SUM(CASE WHEN status NOT IN ('Delivered','Cancelled') THEN 1 ELSE 0 END) AS other
+FROM orders
+GROUP BY month
+ORDER BY month;</pre></details></div>
+
+<div class="ex" data-id="w02-l5-e6"><p class="q"><b>Each customer's most recent order</b>, with its date and amount. Include only customers who have orders.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">WITH r AS (
+  SELECT o.*, ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY order_date DESC) AS rn
+  FROM orders o
+)
+SELECT customer_id, order_id, order_date, total_amount
+FROM r
+WHERE rn = 1
+ORDER BY customer_id;</pre></details></div>
+
+<div class="ex" data-id="w02-l5-e7"><p class="q"><b>Running total per customer:</b> each order with the customer's cumulative spend up to that order.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT customer_id, order_id, order_date, total_amount,
+       SUM(total_amount) OVER (PARTITION BY customer_id ORDER BY order_date) AS cumulative
+FROM orders
+ORDER BY customer_id, order_date;</pre></details></div>
+
+<div class="ex" data-id="w02-l5-e8"><p class="q"><b>Managers and team size:</b> list each manager with the number of direct reports and their team's average salary. Biggest team first.</p>
+<details class="ans"><summary>Show answer</summary><pre class="run">SELECT m.full_name AS manager,
+       COUNT(e.emp_id) AS direct_reports,
+       ROUND(AVG(e.salary)) AS team_avg_salary
+FROM employees m
+JOIN employees e ON e.manager_id = m.emp_id
+GROUP BY m.emp_id, m.full_name
+ORDER BY direct_reports DESC;</pre></details></div>
+
+<h2>Theory: model answers</h2>
+<div class="tablewrap"><table class="ref">
+<tr><th>Question</th><th>Model answer</th></tr>
+<tr><td>UNION vs UNION ALL</td><td>UNION removes duplicate rows (slower, since it has to sort or hash). UNION ALL keeps everything. Use UNION ALL unless you need duplicates removed.</td></tr>
+<tr><td>DELETE vs TRUNCATE vs DROP</td><td>DELETE removes chosen rows, is logged, and can be rolled back. TRUNCATE removes all rows quickly and resets identity. DROP removes the table itself.</td></tr>
+<tr><td>Primary vs unique key</td><td>One primary key per table, never NULL. Many unique keys are allowed, and they usually allow NULL.</td></tr>
+<tr><td>What is normalisation?</td><td>Organising tables to reduce duplication. 1NF: atomic values, no repeating groups. 2NF: no partial dependency on part of a composite key. 3NF: no column depends on another non-key column.</td></tr>
+<tr><td>What is denormalisation?</td><td>Deliberately duplicating data to make reads faster, as in reporting tables. It's a trade-off: faster reads, harder consistency, more data checks to write.</td></tr>
+<tr><td>What is a view?</td><td>A saved query that behaves like a table. Useful for simplifying complex joins and limiting what users can see.</td></tr>
+<tr><td>Stored procedure vs function</td><td>A procedure runs a set of statements and can change data. A function returns a value and can be used inside SELECT.</td></tr>
+<tr><td>CHAR vs VARCHAR</td><td>CHAR is fixed length (padded). VARCHAR is variable length and uses only the space it needs.</td></tr>
+<tr><td>What is an index; downsides?</td><td>A structure that speeds up lookups. Downsides: slower INSERT and UPDATE, extra storage, and a poorly chosen index may never be used.</td></tr>
+<tr><td>ACID</td><td>Atomicity, Consistency, Isolation, Durability. Explain each in one line (see Lesson 3).</td></tr>
+<tr><td>What is SQL injection, and how do you test for it?</td><td>Untrusted input changing a query, e.g. <code>' OR '1'='1</code> in a login field. Test input fields and APIs with such payloads and check that errors aren't leaked. The fix is parameterised queries.</td></tr>
+</table></div>
+
+<div class="callout interview"><b>"How did you use SQL in your project?": your answer</b>
+<p>Build it from your own resume. For example: "At Rite Aid I used SQL daily for backend validation. I created test patients and loyalty accounts with scripts instead of the UI, which saved setup time. After UI and API actions, I verified the records in the database: order and prescription details, loyalty points. I also wrote queries to find data discrepancies such as duplicates and records that didn't reconcile, and I attached the query output as defect evidence. At Sydney Water I compared request and response payloads across service versions, which is the same reconciliation idea." Then offer to walk them through a data-health query like the one in Lesson 4.</p>
+</div>
+
+<p>Finished Phase 1? Tick this lesson, then do the LeetCode SQL 50 practice on the plan page. Next is Week 3: Python and pytest, where your SQL checks become automated tests.</p>
+</section>
+
+</body></html>

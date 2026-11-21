@@ -1,0 +1,1024 @@
+<title>QA Comeback Plan</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="A 12-week QA to SDET roadmap: SQL, Python, pytest, Selenium, API automation, AI testing and interview prep, with lessons and progress tracking.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap">
+<style>
+/* Layout: the plan as a CI pipeline. Hero = run summary with a coverage gauge; phases = pipeline stages;
+   weeks = jobs that go QUEUED → RUNNING → PASSED; sidebar = next step, contribution-style activity grid, backup and reset. */
+:root{
+  --bg:#f3f6f2; --surface:#ffffff; --raised:#fbfcfa; --fg:#132019; --muted:#5a695f; --line:#dde4dc;
+  --pass:#16804e; --pass-soft:#e1f2e8; --run:#b06a00; --run-soft:#fcefd8; --queue:#7d8a82; --queue-soft:#eef1ed;
+  --accent:#1d5c4c; --accent-ink:#ffffff; --err:#b42318; --err-soft:#fde9e7; --code:#eef2ed; --tip:#e7f0f5; --tip-line:#2f6b8a;
+  --shadow:0 1px 2px rgba(19,32,25,.05),0 6px 20px -12px rgba(19,32,25,.18);
+  --display:"Space Grotesk",system-ui,sans-serif; --body:"IBM Plex Sans",system-ui,sans-serif; --mono:"IBM Plex Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#0e1411; --surface:#151d18; --raised:#19221c; --fg:#e3ebe5; --muted:#95a49b; --line:#26322b;
+  --pass:#4cc285; --pass-soft:#16301f; --run:#e3a54d; --run-soft:#372912; --queue:#7f8c84; --queue-soft:#1c2520;
+  --accent:#7cc8b0; --accent-ink:#0e1411; --err:#ff8a7a; --err-soft:#3b1b17; --code:#111915; --tip:#13232e; --tip-line:#6fb3d6;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px -14px rgba(0,0,0,.6); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0e1411; --surface:#151d18; --raised:#19221c; --fg:#e3ebe5; --muted:#95a49b; --line:#26322b;
+  --pass:#4cc285; --pass-soft:#16301f; --run:#e3a54d; --run-soft:#372912; --queue:#7f8c84; --queue-soft:#1c2520;
+  --accent:#7cc8b0; --accent-ink:#0e1411; --err:#ff8a7a; --err-soft:#3b1b17; --code:#111915; --tip:#13232e; --tip-line:#6fb3d6;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px -14px rgba(0,0,0,.6); color-scheme:dark}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:15px;line-height:1.6}
+.wrap{max-width:1180px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 72px}
+h1,h2,h3,h4{font-family:var(--display);text-wrap:balance;margin:0}
+a{color:var(--accent)}
+a:focus-visible,button:focus-visible,input:focus-visible,summary:focus-visible,textarea:focus-visible,label:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+.eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+button{font:inherit;cursor:pointer}
+.btn{display:inline-flex;align-items:center;gap:6px;font-family:var(--mono);font-size:13px;padding:7px 13px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--fg);text-decoration:none;line-height:1.3}
+.btn:hover{border-color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover{filter:brightness(1.08)}
+.btn.done{background:var(--pass-soft);border-color:var(--pass);color:var(--pass)}
+.btn.danger{color:var(--err);border-color:color-mix(in srgb,var(--err) 40%,var(--line))}
+.btn.danger.solid{background:var(--err);border-color:var(--err);color:#fff}
+.linkbtn{background:none;border:0;padding:0;color:var(--muted);font-family:var(--mono);font-size:12px;text-decoration:underline;text-underline-offset:3px}
+.linkbtn:hover{color:var(--err)}
+
+/* ---------- nav ---------- */
+.nav{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-bottom:18px;margin-bottom:26px;border-bottom:1px solid var(--line)}
+.brand{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:13px;font-weight:600;color:var(--fg);text-decoration:none}
+.brand i{display:grid;place-items:center;width:28px;height:28px;border-radius:7px;background:var(--accent);color:var(--accent-ink);font-style:normal;font-size:12px}
+.nav nav{display:flex;gap:6px;flex-wrap:wrap}
+.nav nav a{font-family:var(--mono);font-size:13px;text-decoration:none;color:var(--muted);padding:6px 10px;border-radius:7px}
+.nav nav a:hover{color:var(--fg);background:var(--surface)}
+
+/* ---------- hero ---------- */
+.hero{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:28px;align-items:center;margin-bottom:22px}
+.hero h1{font-size:clamp(32px,5.4vw,52px);line-height:1.04;letter-spacing:-.02em;margin:8px 0 12px}
+.hero p{margin:0;max-width:60ch;color:var(--muted);font-size:16px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.chip{font-family:var(--mono);font-size:12px;padding:4px 10px;border-radius:999px;background:var(--surface);border:1px solid var(--line);color:var(--muted)}
+.chip b{color:var(--fg);font-weight:600}
+.gauge{position:relative;width:184px;height:184px;flex:none}
+.gauge svg{width:100%;height:100%;transform:rotate(-90deg)}
+.gauge .track{stroke:var(--line)}
+.gauge .fill{stroke:var(--pass);transition:stroke-dashoffset .8s cubic-bezier(.2,.7,.2,1)}
+.gauge .center{position:absolute;inset:0;display:grid;place-content:center;text-align:center}
+.gauge .pct{font-family:var(--display);font-size:40px;font-weight:700;line-height:1;font-variant-numeric:tabular-nums}
+.gauge .lbl{font-family:var(--mono);font-size:11.5px;color:var(--muted);letter-spacing:.06em;text-transform:uppercase;margin-top:6px}
+@media (max-width:720px){.hero{grid-template-columns:minmax(0,1fr)}.gauge{width:150px;height:150px}.gauge .pct{font-size:32px}}
+
+.tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:30px}
+@media (max-width:820px){.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}}
+.tile{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:14px 16px;box-shadow:var(--shadow)}
+.tile .v{font-family:var(--display);font-size:26px;font-weight:700;font-variant-numeric:tabular-nums;line-height:1.15}
+.tile .v small{font-size:15px;color:var(--muted);font-weight:500}
+.tile .k{font-family:var(--mono);font-size:11.5px;color:var(--muted);letter-spacing:.05em;text-transform:uppercase}
+
+/* ---------- pipeline ---------- */
+.section-h{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:12px}
+.section-h h2{font-size:20px}
+.pipeline{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px;margin-bottom:34px;position:relative}
+.pipeline::before{content:"";position:absolute;left:4%;right:4%;top:23px;height:2px;background:var(--line);z-index:0}
+@media (max-width:880px){.pipeline{grid-template-columns:minmax(0,1fr)}.pipeline::before{display:none}}
+.stage{position:relative;z-index:1;display:grid;gap:8px;padding:12px 14px;border-radius:12px;background:var(--surface);border:1px solid var(--line);text-decoration:none;color:var(--fg);box-shadow:var(--shadow)}
+.stage:hover{border-color:var(--accent)}
+.stage .top{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.stage .dot{width:12px;height:12px;border-radius:50%;background:var(--queue);box-shadow:0 0 0 4px var(--surface)}
+.stage.passed .dot{background:var(--pass)}
+.stage.running .dot{background:var(--run)}
+.stage h3{font-size:15px;font-weight:600}
+.stage .sub{font-family:var(--mono);font-size:11.5px;color:var(--muted)}
+.bar{height:6px;border-radius:3px;background:var(--queue-soft);overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:var(--pass);border-radius:3px;transition:width .5s ease}
+.running .bar i{background:var(--run)}
+.pill{font-family:var(--mono);font-size:10.5px;font-weight:600;letter-spacing:.07em;padding:2px 7px;border-radius:999px;background:var(--queue-soft);color:var(--queue);white-space:nowrap}
+.passed .pill,.pill.passed{background:var(--pass-soft);color:var(--pass)}
+.running .pill,.pill.running{background:var(--run-soft);color:var(--run)}
+
+/* ---------- plan grid ---------- */
+.grid{display:grid;grid-template-columns:minmax(0,1fr) 330px;gap:28px;align-items:start}
+@media (max-width:960px){.grid{grid-template-columns:minmax(0,1fr)}}
+.phase{margin-bottom:30px;scroll-margin-top:20px}
+.phase>h2{font-size:21px;display:flex;flex-wrap:wrap;align-items:baseline;gap:4px 12px;margin-bottom:4px}
+.phase>h2 small{font-family:var(--mono);font-size:12px;font-weight:500;color:var(--muted)}
+.phase>p{margin:0 0 12px;color:var(--muted);max-width:66ch}
+details.suite{background:var(--surface);border:1px solid var(--line);border-radius:12px;margin-bottom:10px;box-shadow:var(--shadow);overflow:hidden}
+details.suite.current{border-color:var(--run);box-shadow:0 0 0 3px var(--run-soft),var(--shadow)}
+details.suite>summary{list-style:none;cursor:pointer;display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:6px 14px;align-items:center;padding:14px 16px 12px}
+details.suite>summary::-webkit-details-marker{display:none}
+details.suite>summary .bar{grid-column:1/-1;margin-top:4px}
+.wk{font-family:var(--mono);font-size:12px;font-weight:600;padding:4px 8px;border-radius:6px;background:var(--queue-soft);color:var(--muted);white-space:nowrap}
+.running .wk{background:var(--run-soft);color:var(--run)}
+.passed .wk{background:var(--pass-soft);color:var(--pass)}
+.st h3{font-size:16px;font-weight:600}
+.st div{font-size:12.5px;color:var(--muted);font-family:var(--mono)}
+.right{display:flex;align-items:center;gap:10px}
+.count{font-family:var(--mono);font-size:12.5px;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+.chev{width:9px;height:9px;border-right:2px solid var(--muted);border-bottom:2px solid var(--muted);transform:rotate(45deg);margin:0 2px 4px;transition:transform .2s}
+details[open]>summary .chev{transform:rotate(-135deg);margin-bottom:0}
+@media (max-width:520px){.right .count{display:none}}
+.body{padding:2px 16px 16px;display:grid;gap:12px;border-top:1px solid var(--line);padding-top:14px}
+.goal{margin:0;font-size:14px}
+.cases{list-style:none;margin:0;padding:0;display:grid;gap:2px}
+.case{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:10px;align-items:start;padding:7px 8px;border-radius:8px}
+.case:hover{background:var(--raised)}
+.case input{width:17px;height:17px;margin:4px 0 0;accent-color:var(--pass);cursor:pointer}
+.case label{cursor:pointer}
+.case a.lesson-link{font-weight:500;text-decoration:none}
+.case a.lesson-link:hover{text-decoration:underline}
+.case .mins{font-family:var(--mono);font-size:12px;color:var(--muted);margin-left:6px;white-space:nowrap}
+.case .tag{font-family:var(--mono);font-size:11px;padding:2px 6px;border-radius:5px;color:var(--muted);border:1px solid var(--line);white-space:nowrap}
+.case.done label,.case.done a.lesson-link{color:var(--muted);text-decoration:line-through;text-decoration-color:var(--line)}
+.case.done .tag{color:var(--pass);border-color:var(--pass);background:var(--pass-soft)}
+.res{font-size:13px;color:var(--muted)}
+.res a{margin-right:10px;white-space:nowrap}
+.deliver,.pending{font-size:13.5px;padding:10px 12px;border-radius:8px;background:var(--raised);border:1px dashed var(--line)}
+.deliver b{font-family:var(--mono);font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);margin-right:6px}
+.pending{border-style:solid;color:var(--muted)}
+.suite-foot{display:flex;justify-content:flex-end}
+
+aside.side{display:grid;gap:14px;position:sticky;top:calc(env(safe-area-inset-top,0px) + 16px)}
+@media (max-width:960px){aside.side{position:static}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:16px;box-shadow:var(--shadow)}
+.panel h3{font-size:15px;margin-bottom:8px}
+.panel ul{margin:0;padding-left:18px;display:grid;gap:6px;font-size:14px}
+.panel p{margin:0 0 8px;font-size:14px}
+.next-title{font-family:var(--display);font-size:17px;font-weight:600;line-height:1.3;margin:4px 0 12px}
+.next-title a{color:var(--fg);text-decoration:none}
+.heat{display:grid;grid-auto-flow:column;grid-template-rows:repeat(7,12px);gap:3px;overflow-x:auto;padding-bottom:2px}
+.heat span{width:12px;height:12px;border-radius:3px;background:var(--queue-soft)}
+.heat span.l1{background:color-mix(in srgb,var(--pass) 30%,var(--surface))}
+.heat span.l2{background:color-mix(in srgb,var(--pass) 55%,var(--surface))}
+.heat span.l3{background:color-mix(in srgb,var(--pass) 78%,var(--surface))}
+.heat span.l4{background:var(--pass)}
+.heat span.today{outline:1.5px solid var(--fg);outline-offset:1px}
+.heat span.future{background:transparent}
+.legend{display:flex;align-items:center;gap:4px;justify-content:flex-end;margin-top:8px;font-family:var(--mono);font-size:11px;color:var(--muted)}
+.legend span{width:10px;height:10px;border-radius:2px;display:inline-block}
+.rhythm{display:grid;gap:6px;font-size:14px}
+.rhythm div{display:grid;grid-template-columns:62px minmax(0,1fr);gap:8px}
+.rhythm span{font-family:var(--mono);font-size:12.5px;color:var(--muted)}
+.say{font-family:var(--mono);font-size:12.5px;background:var(--raised);border:1px solid var(--line);border-radius:8px;padding:8px 10px;margin-top:6px;overflow-wrap:anywhere}
+.syncnote{font-family:var(--mono);font-size:12px;color:var(--muted)}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap}
+.divider{height:1px;background:var(--line);margin:12px 0}
+
+/* ---------- modal + toast ---------- */
+.modal{position:fixed;inset:0;z-index:50;display:grid;place-items:center;padding:16px;background:color-mix(in srgb,#000 45%,transparent)}
+.modal .box{width:min(460px,100%);background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:20px;box-shadow:0 20px 60px -20px rgba(0,0,0,.5)}
+.modal h2{font-size:20px;margin-bottom:8px}
+.modal p{margin:0 0 16px;color:var(--muted)}
+.modal .btnrow{justify-content:flex-end}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);z-index:60;display:flex;align-items:center;gap:14px;background:var(--fg);color:var(--bg);padding:10px 12px 10px 16px;border-radius:10px;font-size:14px;box-shadow:0 10px 30px -10px rgba(0,0,0,.5);max-width:calc(100% - 32px)}
+.toast button{background:none;border:1px solid color-mix(in srgb,var(--bg) 40%,transparent);color:var(--bg);border-radius:7px;padding:4px 10px;font-family:var(--mono);font-size:12.5px}
+
+/* ---------- reader ---------- */
+.topbar{display:flex;flex-wrap:wrap;gap:8px 16px;align-items:center;justify-content:space-between;padding-bottom:14px;border-bottom:1px solid var(--line);margin-bottom:22px;font-family:var(--mono);font-size:13px}
+.topbar a{text-decoration:none}
+.reader{display:grid;grid-template-columns:minmax(0,1fr) 290px;gap:32px;align-items:start}
+@media (max-width:980px){.reader{grid-template-columns:minmax(0,1fr)}}
+article.lesson-body{max-width:780px;min-width:0}
+.lesson-head{display:grid;gap:8px;margin-bottom:22px}
+.lesson-head h1{font-size:clamp(26px,4.4vw,38px);line-height:1.12;letter-spacing:-.01em}
+.lesson-body h2{font-size:22px;margin:34px 0 10px}
+.lesson-body h3{font-size:17px;margin:24px 0 8px}
+.lesson-body p,.lesson-body li{max-width:70ch}
+.lesson-body ul,.lesson-body ol{padding-left:22px}
+.lesson-body li{margin-bottom:4px}
+.lesson-body code{font-family:var(--mono);font-size:.9em;background:var(--code);padding:1px 5px;border-radius:4px}
+.lesson-body table.ref{border-collapse:collapse;font-size:14px;margin:10px 0;width:100%}
+.tablewrap{overflow-x:auto;max-width:100%}
+.lesson-body table.ref th,.lesson-body table.ref td{border:1px solid var(--line);padding:6px 10px;text-align:left;vertical-align:top}
+.lesson-body table.ref th{background:var(--code);font-family:var(--mono);font-size:12.5px;font-weight:600}
+.codewrap{position:relative;margin:12px 0}
+.codewrap pre.code{margin:0;padding-right:64px}
+.copybtn{position:absolute;top:8px;right:8px;font-family:var(--mono);font-size:11.5px;padding:3px 8px;border-radius:5px;border:1px solid var(--line);background:var(--surface);color:var(--muted)}
+.copybtn:hover{color:var(--fg);border-color:var(--accent)}
+pre.code{font-family:var(--mono);font-size:13px;background:var(--code);border:1px solid var(--line);border-radius:10px;padding:12px 14px;overflow-x:auto;line-height:1.5}
+.callout{border-left:3px solid var(--tip-line);background:var(--tip);padding:10px 14px;border-radius:0 10px 10px 0;margin:16px 0}
+.callout>b:first-child{display:block;font-family:var(--mono);font-size:11.5px;letter-spacing:.07em;text-transform:uppercase;margin-bottom:4px;color:var(--tip-line)}
+.callout.warn{border-color:var(--run);background:var(--run-soft)} .callout.warn>b:first-child{color:var(--run)}
+.callout.interview{border-color:var(--pass);background:var(--pass-soft)} .callout.interview>b:first-child{color:var(--pass)}
+.callout p{margin:6px 0}
+.editor{border:1px solid var(--line);border-radius:10px;background:var(--surface);margin:12px 0;overflow:hidden}
+.editor textarea{display:block;width:100%;border:0;resize:vertical;min-height:52px;padding:12px 14px;font-family:var(--mono);font-size:13.5px;line-height:1.5;background:var(--code);color:var(--fg);tab-size:2}
+.editor .bar2{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:8px 10px;border-top:1px solid var(--line)}
+.editor .hint{font-family:var(--mono);font-size:11.5px;color:var(--muted);margin-left:auto}
+.out{font-family:var(--mono);font-size:12.5px;overflow-x:auto;max-height:340px;overflow-y:auto}
+.out:empty{display:none}
+.out table{border-collapse:collapse;width:max-content;min-width:100%}
+.out th,.out td{border-bottom:1px solid var(--line);padding:5px 12px;text-align:left;white-space:nowrap;font-variant-numeric:tabular-nums}
+.out th{position:sticky;top:0;background:var(--surface);font-weight:600}
+.out .null{color:var(--muted);font-style:italic}
+.out .msg{padding:8px 12px;color:var(--muted)}
+.out .error{padding:8px 12px;color:var(--err);background:var(--err-soft)}
+.ex{border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin:16px 0;background:var(--surface)}
+.ex.solved{border-color:var(--pass)}
+.ex-head{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
+.ex-head .n{font-family:var(--mono);font-size:12px;font-weight:600;color:var(--accent)}
+.ex-head label{font-family:var(--mono);font-size:12.5px;display:flex;gap:6px;align-items:center;cursor:pointer;color:var(--muted)}
+.ex-head input{accent-color:var(--pass);width:16px;height:16px}
+.ex .q{margin:8px 0 4px}
+details.ans{margin-top:6px}
+details.ans>summary{display:inline-block;padding:4px 0;font-family:var(--mono);font-size:12.5px;color:var(--accent);cursor:pointer;list-style:none}
+details.ans>summary::-webkit-details-marker{display:none}
+details.ans>summary::before{content:"+ "}
+details.ans[open]>summary::before{content:"− "}
+.lesson-foot{display:flex;flex-wrap:wrap;gap:10px;justify-content:space-between;align-items:center;margin-top:36px;padding-top:18px;border-top:1px solid var(--line)}
+.lesson-foot a{font-family:var(--mono);font-size:13px;text-decoration:none}
+.reader aside{display:grid;gap:14px;position:sticky;top:calc(env(safe-area-inset-top,0px) + 16px);max-height:calc(100vh - 32px);overflow:auto}
+@media (max-width:980px){.reader aside{position:static;max-height:none}}
+.schema{font-family:var(--mono);font-size:12px;display:grid;gap:8px}
+.schema div b{color:var(--accent);font-weight:600}
+.schema div span{color:var(--muted)}
+.loading{color:var(--muted);font-family:var(--mono);font-size:13px;padding:24px 0}
+footer.foot{margin-top:40px;padding-top:16px;border-top:1px solid var(--line);font-family:var(--mono);font-size:12px;color:var(--muted);display:flex;flex-wrap:wrap;gap:8px;justify-content:space-between}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.gauge .fill,.bar i{transition:none}}
+</style>
+
+<div class="wrap">
+  <header class="nav">
+    <a class="brand" href="#plan"><i>QA</i>SDET Roadmap</a>
+    <nav><a href="#plan">Plan</a><a href="#playground">SQL playground</a></nav>
+  </header>
+
+  <!-- PLAN VIEW -->
+  <div id="planView">
+    <section class="hero">
+      <div>
+        <div class="eyebrow">Neer Agrawal · Software Quality Engineer → SDET</div>
+        <h1>QA Comeback Plan</h1>
+        <p>Twelve weeks from Software Quality Engineer to SDET: SQL, Python and pytest, Selenium, API automation, AI testing and interview practice. Each week has lessons, exercises and a project.</p>
+        <div class="chips">
+          <span class="chip">Run window <b>20 Nov 2026 – 14 Feb 2027</b></span>
+          <span class="chip">Now <b id="curWk">–</b></span>
+          <span class="chip"><span class="sync">Loading saved progress…</span></span>
+        </div>
+      </div>
+      <div class="gauge" role="img" id="gauge" aria-label="Coverage">
+        <svg viewBox="0 0 160 160" aria-hidden="true">
+          <circle class="track" cx="80" cy="80" r="70" fill="none" stroke-width="12"></circle>
+          <circle class="fill" id="gaugeFill" cx="80" cy="80" r="70" fill="none" stroke-width="12" stroke-linecap="round" stroke-dasharray="439.82" stroke-dashoffset="439.82"></circle>
+        </svg>
+        <div class="center"><div class="pct" id="covPct">0%</div><div class="lbl">coverage</div></div>
+      </div>
+    </section>
+
+    <section class="tiles" aria-label="Progress summary">
+      <div class="tile"><div class="v" id="tLessons">0<small> / 0</small></div><div class="k">Lessons done</div></div>
+      <div class="tile"><div class="v" id="tCases">0<small> / 0</small></div><div class="k">Cases passed</div></div>
+      <div class="tile"><div class="v" id="tEx">0</div><div class="k">Exercises solved</div></div>
+      <div class="tile"><div class="v" id="tStreak">0<small> days</small></div><div class="k">Study streak</div></div>
+    </section>
+
+    <div class="section-h"><h2>Pipeline</h2><span class="eyebrow" id="pipeSummary"></span></div>
+    <section class="pipeline" id="pipeline"></section>
+
+    <div class="grid">
+      <main id="plan"></main>
+      <aside class="side">
+        <div class="panel">
+          <div class="eyebrow">Up next</div>
+          <div class="next-title" id="nextUp">Loading…</div>
+          <div class="btnrow"><a class="btn primary" id="nextBtn" href="#plan">Start</a><a class="btn" href="#playground">SQL playground</a></div>
+        </div>
+        <div class="panel">
+          <h3>Activity</h3>
+          <div class="heat" id="heat" aria-label="Ticks per day, last 12 weeks"></div>
+          <div class="legend">Less <span style="background:var(--queue-soft)"></span><span class="l1" style="background:color-mix(in srgb,var(--pass) 30%,var(--surface))"></span><span style="background:color-mix(in srgb,var(--pass) 55%,var(--surface))"></span><span style="background:color-mix(in srgb,var(--pass) 78%,var(--surface))"></span><span style="background:var(--pass)"></span> More</div>
+          <p class="syncnote" id="lastActive" style="margin:8px 0 0"></p>
+        </div>
+        <div class="panel">
+          <h3>Progress and backup</h3>
+          <p id="backupNote">Your ticks save automatically. Export a backup file now and then; you can import it here or into another copy of the plan.</p>
+          <div class="btnrow">
+            <button class="btn" type="button" id="exportBtn">Export</button>
+            <label class="btn" for="importFile" tabindex="0">Import</label>
+            <input type="file" id="importFile" accept=".json,application/json" hidden>
+            <button class="btn danger" type="button" id="resetAllBtn">Reset all</button>
+          </div>
+          <p class="syncnote" id="backupMsg" style="margin:8px 0 0"></p>
+        </div>
+        <div class="panel">
+          <h3>Daily rhythm</h3>
+          <div class="rhythm">
+            <div><span>30 min</span><div>Warm-up: 1 SQL or coding problem</div></div>
+            <div><span>90 min</span><div>One lesson, including its exercises</div></div>
+            <div><span>30 min</span><div>Job search: 2 tailored applications or 1 referral ask</div></div>
+            <div><span>Sat–Sun</span><div>Finish the week's exit criteria; push work to GitHub</div></div>
+          </div>
+        </div>
+        <div class="panel">
+          <h3>Working with your tutor</h3>
+          <p>Bring questions, code and answers to Claude. Lesson notes for each new week are added before that week begins.</p>
+          <div class="say">"I'm stuck on Week 1 Lesson 4, exercise 3"</div>
+          <div class="say">"Quiz me on window functions"</div>
+          <div class="say">"Mock interview: SDET, 30 min"</div>
+        </div>
+        <div class="panel">
+          <h3>Job search track</h3>
+          <ul>
+            <li>Apply now for roles that match your current resume. New skills go on the resume as you finish them.</li>
+            <li>Titles: QA Engineer, Senior QA, Automation Test Engineer, SDET, GenAI QA</li>
+            <li>Include product companies and GCCs, not only service firms</li>
+            <li>10 tailored applications and 3 referral asks per week</li>
+          </ul>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <!-- READER VIEW -->
+  <div id="readerView" hidden>
+    <div class="topbar">
+      <a href="#plan">← Plan</a>
+      <span id="rCrumb" class="eyebrow"></span>
+      <span class="sync" style="color:var(--muted)"></span>
+    </div>
+    <div class="reader">
+      <article class="lesson-body">
+        <div class="lesson-head">
+          <div class="eyebrow" id="rMeta"></div>
+          <h1 id="rTitle"></h1>
+        </div>
+        <div id="rContent"><div class="loading">Loading lesson…</div></div>
+        <div class="lesson-foot">
+          <a id="rPrev" href="#plan">← Previous</a>
+          <button class="btn primary" id="rDone" type="button">Mark lesson complete</button>
+          <a id="rNext" href="#plan">Next →</a>
+        </div>
+      </article>
+      <aside>
+        <div class="panel" id="codePanel" hidden>
+          <h3>Run it on your laptop</h3>
+          <p style="font-size:13.5px">This week's code runs in VS Code or PyCharm, not in the page. Keep one project folder with a virtual environment:</p>
+          <pre class="code" style="font-size:12px;margin:8px 0">python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install pytest selenium</pre>
+          <p style="font-size:13.5px">Use the <b>Copy</b> button on any code block. Answers that end in <code>assert</code> lines check themselves: no error means correct.</p>
+          <p style="font-size:13.5px;margin:0">Stuck? Paste your code and the error to Claude.</p>
+        </div>
+        <div class="panel" id="dbPanel">
+          <h3>Practice database</h3>
+          <p style="font-size:13px;color:var(--muted)">A small pharmacy and retail shop. It has some data defects on purpose, for you to find.</p>
+          <div class="schema" id="schemaBox"></div>
+          <div class="btnrow" style="margin-top:12px">
+            <button class="btn" type="button" data-reset>Reset data</button>
+            <a class="btn" href="#playground">Playground</a>
+          </div>
+          <p class="syncnote" id="dbNote" style="margin-top:8px"></p>
+        </div>
+        <div class="panel" id="sqlHowPanel">
+          <h3>How to use a lesson</h3>
+          <p style="font-size:13.5px">Every grey box is a live editor. Change the query, press Run (or Ctrl+Enter), and see the result. Try each exercise yourself before you open the answer.</p>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <!-- PLAYGROUND VIEW -->
+  <div id="playView" hidden>
+    <div class="topbar">
+      <a href="#plan">← Plan</a>
+      <span class="eyebrow">SQL playground</span>
+      <span></span>
+    </div>
+    <div class="reader">
+      <div style="min-width:0">
+        <h1 style="font-size:30px;margin-bottom:8px">SQL playground</h1>
+        <p style="color:var(--muted);margin-top:0">Write any query against the practice database. It runs SQLite inside your browser, so nothing you do here can break anything. Use Reset data to start fresh.</p>
+        <div id="playEditor"></div>
+      </div>
+      <aside>
+        <div class="panel">
+          <h3>Tables</h3>
+          <div class="schema" id="schemaBox2"></div>
+          <div style="margin-top:12px"><button class="btn" type="button" data-reset>Reset data</button></div>
+        </div>
+      </aside>
+    </div>
+  </div>
+
+  <footer class="foot"><span>QA → SDET roadmap · lessons written with Claude</span><span class="sync"></span></footer>
+</div>
+
+<div class="modal" id="modal" hidden role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+  <div class="box">
+    <h2 id="modalTitle"></h2>
+    <p id="modalText"></p>
+    <div class="btnrow" id="modalBtns"></div>
+  </div>
+</div>
+<div class="toast" id="toast" hidden role="status"><span id="toastMsg"></span><button type="button" id="toastUndo">Undo</button></div>
+
+<script>
+const START = new Date(2026,10,23); // Monday of Week 1
+const SQLJS_URL = "https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/sql-asm.js";
+
+// case: [id, text, tag, lessonMinutes?]  (a case with minutes is a lesson that opens in the reader)
+const PLAN = [
+ {phase:"Launch", short:"Launch", note:"Set up before studying starts.", weeks:[
+  {id:"w00", n:0, title:"Setup and profile", dates:"20–22 Nov", goal:"Have your tools ready and your profiles live, so applications go out while you study.",
+   cases:[["w0a","Install Python 3.12","setup"],["w0b","Install VS Code or PyCharm, and Git","setup"],["w0c","Create a GitHub account with a clear profile README","setup"],
+          ["w0d","Update your LinkedIn profile","profile"],["w0e","Update your Naukri profile","profile"],
+          ["w0f","Prepare a 60-second 'tell me about yourself'","interview"],["w0g","Start a job tracker: company, role, date, status, contact","jobs"]],
+   res:[["Git for Windows","https://git-scm.com/download/win"],["VS Code","https://code.visualstudio.com/"]],
+   deliver:"Tools installed, GitHub account ready, job tracker started."}
+ ]},
+ {phase:"Phase 1 · SQL", short:"SQL", note:"The fastest win. Most QA interviews include a live SQL round, and good backend testing depends on SQL.", weeks:[
+  {id:"w01", n:1, title:"SQL foundations", dates:"23–29 Nov", file:"lessons/w01.html", goal:"Write single-table and multi-table queries without looking anything up.",
+   cases:[["w01-l1","Databases, tables and your first SELECT","lesson",60],["w01-l2","Filtering rows with WHERE","lesson",75],
+          ["w01-l3","Aggregates, GROUP BY and HAVING","lesson",90],["w01-l4","JOINs: combining tables","lesson",120],
+          ["w01-l5","NULLs, CASE and built-in functions","lesson",90],["w01-l6","Week 1 review and interview drill","lesson",90]],
+   res:[["SQLBolt (extra practice)","https://sqlbolt.com/"]],
+   deliver:"All Week 1 exercises solved, and the review drill done in under 45 minutes."},
+  {id:"w02", n:2, title:"SQL for testers", dates:"30 Nov – 6 Dec", file:"lessons/w02.html", goal:"Use SQL the way a strong QA engineer does: validate data, find defects, and answer any interview question.",
+   cases:[["w02-l1","Subqueries and CTEs","lesson",90],["w02-l2","Window functions","lesson",120],
+          ["w02-l3","Changing data and managing test data","lesson",90],["w02-l4","Data validation queries for QA","lesson",120],
+          ["w02-l5","SQL interview masterclass","lesson",120],["w02-x","Solve 25 problems from LeetCode SQL 50","practice"]],
+   res:[["LeetCode SQL 50","https://leetcode.com/studyplan/top-sql-50/"]],
+   deliver:"A GitHub repo called 'sql-for-qa' with your validation queries and interview solutions."}
+ ]},
+ {phase:"Phase 2 · Automation", short:"Automation", note:"You already have Python and Selenium experience. Here you take them to framework level, then add API automation and CI.", weeks:[
+  {id:"w03", n:3, title:"Python and pytest for testers", dates:"7–13 Dec", file:"lessons/w03.html", goal:"Write clean, object-oriented Python and run it under pytest.",
+   cases:[["w03-l1","Python refresh for testers","lesson",75],["w03-l2","OOP for automation frameworks","lesson",90],
+          ["w03-l3","Files, JSON, exceptions and environments","lesson",75],["w03-l4","pytest fundamentals","lesson",120],
+          ["w03-l5","Git and GitHub for testers","lesson",75],["w03-l6","Project: SQL checks as a pytest suite","lesson",120]],
+   res:[["pytest docs","https://docs.pytest.org/en/stable/getting-started.html"],["Pro Git book","https://git-scm.com/book/en/v2"]],
+   deliver:"A public 'sql-for-qa' repo: pytest runs your SQL data checks and reports 3 passed, 9 xfailed."},
+  {id:"w04", n:4, title:"Selenium to framework level", dates:"14–20 Dec", file:"lessons/w04.html", goal:"Answer any Selenium question at senior level and build tests that don't flake.",
+   cases:[["w04-l1","Selenium architecture and the core API","lesson",75],["w04-l2","Locators that don't break","lesson",90],
+          ["w04-l3","Waits and exceptions","lesson",90],["w04-l4","Page Object Model framework with pytest","lesson",150],
+          ["w04-l5","Alerts, frames, windows, actions, uploads, tables","lesson",90],["w04-l6","Grid, parallel runs, flaky tests and interview bank","lesson",120]],
+   res:[["Selenium docs","https://www.selenium.dev/documentation/"],["Sauce Demo","https://www.saucedemo.com/"],["The Internet","https://the-internet.herokuapp.com/"]],
+   deliver:"A public 'saucedemo-selenium' repo: 15+ tests with Page Objects, passing in parallel and headless."},
+  {id:"w05", n:5, title:"API automation in code", dates:"21–27 Dec", goal:"Move from Postman clicks to API tests that run in a pipeline.",
+   cases:[["w05a","requests + pytest: GET, POST, PUT, PATCH, DELETE","lesson"],["w05b","Auth tokens, headers, status codes, negative tests","lesson"],
+          ["w05c","Schema validation with jsonschema or pydantic","lesson"],["w05d","Data-driven tests from JSON or CSV","lesson"],
+          ["w05e","Hybrid test: create by API, check in UI, verify in DB with SQL","practice"],["w05f","REST Assured basics in Java (it is on your resume)","lesson"]],
+   res:[["Restful Booker","https://restful-booker.herokuapp.com/apidoc/index.html"],["requests docs","https://requests.readthedocs.io/"]],
+   deliver:"20 API tests, including one hybrid API + UI + SQL test."},
+  {id:"w06", n:6, title:"Framework and CI/CD", dates:"28 Dec – 3 Jan", goal:"Turn everything into one framework that runs on every push.",
+   cases:[["w06a","Folder structure, config per environment, logging","lesson"],["w06b","Allure reports with screenshots on failure","lesson"],
+          ["w06c","Parallel runs with pytest-xdist; handling flaky tests","lesson"],["w06d","GitHub Actions: on push and nightly","lesson"],
+          ["w06e","Docker basics: run the suite and Selenium Grid in containers","lesson"],["w06f","README with architecture diagram and run instructions","practice"]],
+   res:[["GitHub Actions","https://docs.github.com/en/actions/writing-workflows/quickstart"],["Allure + pytest","https://allurereport.org/docs/pytest/"],["Docker get started","https://docs.docker.com/get-started/"]],
+   deliver:"Capstone 1: a public 'qa-automation-framework' repo with a passing CI badge."}
+ ]},
+ {phase:"Phase 3 · AI QA", short:"AI QA", note:"This is what sets you apart. You have built and tested RAG apps already; here you add proper evaluation tools.", weeks:[
+  {id:"w07", n:7, title:"How to test LLM apps", dates:"4–10 Jan", goal:"Explain why exact-match asserts fail on LLMs and what replaces them.",
+   cases:[["w07a","Tokens, temperature, non-determinism, context windows","lesson"],["w07b","What to test: accuracy, hallucination, retrieval, safety, bias, latency, cost","lesson"],
+          ["w07c","RAG metrics: faithfulness, answer relevancy, context precision and recall","lesson"],["w07d","Build a golden dataset of 30 Q&A pairs for your NextLeap bot","practice"],
+          ["w07e","LLM-as-judge: how it works and where it goes wrong","lesson"],["w07f","Write a test strategy for an LLM chatbot","practice"]],
+   res:[["DeepEval docs","https://deepeval.com/docs/getting-started"],["RAGAS docs","https://docs.ragas.io/"]],
+   deliver:"An LLM test strategy (2 pages) and a golden dataset in your repo."},
+  {id:"w08", n:8, title:"Eval tooling and red-teaming", dates:"11–17 Jan", goal:"Run automated LLM evals in CI and attack your own app safely.",
+   cases:[["w08a","DeepEval with pytest: metrics, thresholds, test cases","lesson"],["w08b","RAGAS evaluation of your NextLeap chatbot","practice"],
+          ["w08c","promptfoo for prompt regression across versions","lesson"],["w08d","Prompt injection, jailbreak and PII-leak test cases","lesson"],
+          ["w08e","OWASP Top 10 for LLM applications","lesson"],["w08f","Run the eval suite in GitHub Actions","practice"]],
+   res:[["promptfoo","https://www.promptfoo.dev/docs/intro/"],["OWASP GenAI Top 10","https://genai.owasp.org/llm-top-10/"]],
+   deliver:"Capstone 2: an 'llm-eval-suite' repo that tests your NextLeap chatbot in CI."},
+  {id:"w09", n:9, title:"Playwright and AI-assisted testing", dates:"18–24 Jan", goal:"Add Playwright to your Selenium skills, and use AI to speed up testing without losing quality.",
+   cases:[["w09a","Playwright for Selenium users: auto-wait, locators, expect()","lesson"],["w09b","Codegen, Trace Viewer and API testing in Playwright","lesson"],
+          ["w09c","Port 5 of your Selenium tests to Playwright and compare","practice"],["w09d","Playwright MCP and AI test agents: what they do, where they fail","lesson"],
+          ["w09e","Generate tests and test data with AI, then review them critically","practice"],["w09f","Performance basics with k6: load, stress, p95 thresholds","lesson"]],
+   res:[["Playwright Python","https://playwright.dev/python/docs/intro"],["Playwright MCP","https://github.com/microsoft/playwright-mcp"],["k6 docs","https://grafana.com/docs/k6/latest/"]],
+   deliver:"A Playwright version of 5 tests, with a short Selenium vs Playwright write-up."}
+ ]},
+ {phase:"Phase 4 · Interview readiness", short:"Interviews", note:"Turn the skills into offers.", weeks:[
+  {id:"w10", n:10, title:"Coding round", dates:"25–31 Jan", goal:"Solve easy and some medium problems in 20 minutes, explaining your approach as you go.",
+   cases:[["w10a","Strings: reverse, palindrome, anagram, character counts","practice"],["w10b","Arrays and hashmaps: duplicates, two-sum, second largest","practice"],
+          ["w10c","Two pointers and sliding window","practice"],["w10d","Stack and queue basics","practice"],
+          ["w10e","30 NeetCode problems in total","practice"],["w10f","Java refresh for Java-based SDET interviews","lesson"]],
+   res:[["NeetCode roadmap","https://neetcode.io/roadmap"]],
+   deliver:"30 problems solved and pushed to GitHub, with a note on the pattern each one uses."},
+  {id:"w11", n:11, title:"Testing concepts and scenarios", dates:"1–7 Feb", goal:"Answer theory, scenario and framework-design questions with confidence.",
+   cases:[["w11a","Test design: boundary values, equivalence classes, decision tables, state transitions","lesson"],["w11b","Scenario drills: login, payment, search, elevator, chatbot","practice"],
+          ["w11c","Explain your framework architecture in 5 minutes","practice"],["w11d","API concepts: REST vs SOAP, idempotency, OAuth/JWT, status codes","lesson"],
+          ["w11e","Flaky tests, test pyramid, shift-left, risk-based testing","lesson"],["w11f","Agile, defect lifecycle, QA metrics, release sign-off","lesson"]],
+   res:[["ISTQB CTFL syllabus","https://www.istqb.org/certifications/certified-tester-foundation-level-ctfl-v4-0/"]],
+   deliver:"Your own bank of 60 interview questions with answers."},
+  {id:"w12", n:12, title:"Mocks, stories and offers", dates:"8–14 Feb", goal:"Walk into final rounds prepared, and negotiate well.",
+   cases:[["w12a","6 STAR stories: leading pods, zero-defect release, 60%→95% coverage, a hard bug, a conflict, your AI projects","interview"],
+          ["w12b","3 full mock interviews with your tutor","interview"],["w12c","Add new skills and GitHub links to your resume","resume"],
+          ["w12d","Research salary bands for your target companies","offer"],["w12e","Practise a negotiation conversation","offer"]],
+   res:[],
+   deliver:"Ready for interviews: portfolio, stories, and an updated resume."}
+ ]}
+];
+
+const SCHEMA = [
+ ["customers","customer_id, full_name, email, city, signup_date, loyalty_tier"],
+ ["products","product_id, product_name, category, price, is_active"],
+ ["orders","order_id, customer_id, order_date, status, total_amount"],
+ ["order_items","item_id, order_id, product_id, quantity, unit_price"],
+ ["payments","payment_id, order_id, amount, method, status, paid_at"],
+ ["defects","defect_id, title, module, severity, priority, status, reported_by, assigned_to, created_on, closed_on"],
+ ["employees","emp_id, full_name, dept, salary, manager_id, hire_date"]
+];
+
+const SEED = `
+CREATE TABLE customers(customer_id INTEGER PRIMARY KEY, full_name TEXT NOT NULL, email TEXT, city TEXT, signup_date TEXT, loyalty_tier TEXT);
+INSERT INTO customers VALUES
+(1,'Aarav Sharma','aarav.sharma@mail.com','Bengaluru','2024-01-15','Gold'),
+(2,'Priya Nair','priya.nair@mail.com','Kochi','2024-02-03','Silver'),
+(3,'Rohan Mehta','rohan.m@mail.com','Mumbai','2024-02-20',NULL),
+(4,'Sneha Iyer','sneha.iyer@mail.com','Chennai','2024-03-11','Gold'),
+(5,'Vikram Rao',NULL,'Hyderabad','2024-03-29','Bronze'),
+(6,'Ananya Gupta','ananya.g@mail.com','Delhi','2024-04-05','Silver'),
+(7,'Karan Singh','karan.singh@mail.com','Pune','2024-05-17','Bronze'),
+(8,'Meera Joshi','meera.j@mail.com','Bengaluru','2024-06-02','Gold'),
+(9,'Arjun Das','priya.nair@mail.com','Kolkata','2024-06-30',NULL),
+(10,'Divya Menon','divya.menon@mail.com','Bengaluru','2024-08-12','Silver'),
+(11,'Rahul Verma','rahul.v@mail.com','Delhi','2024-09-01','Bronze'),
+(12,'Isha Kapoor','isha.k@mail.com','Mumbai','2024-10-21',NULL);
+CREATE TABLE products(product_id INTEGER PRIMARY KEY, product_name TEXT NOT NULL, category TEXT, price REAL, is_active INTEGER);
+INSERT INTO products VALUES
+(101,'Paracetamol 500mg','Pharmacy',35.00,1),(102,'Vitamin C Tablets','Pharmacy',249.00,1),
+(103,'Digital Thermometer','Devices',399.00,1),(104,'BP Monitor','Devices',1899.00,1),
+(105,'Hand Sanitizer 500ml','Personal Care',199.00,1),(106,'Face Wash','Personal Care',275.00,1),
+(107,'Protein Powder 1kg','Nutrition',1499.00,1),(108,'Green Tea 100 bags','Nutrition',450.00,0),
+(109,'N95 Mask (5 pack)','Personal Care',299.00,1),(110,'Glucometer Kit','Devices',1250.00,1),
+(111,'Ayurvedic Balm','Personal Care',89.00,1),(112,'Pulse Oximeter','Devices',1599.00,1);
+CREATE TABLE orders(order_id INTEGER PRIMARY KEY, customer_id INTEGER REFERENCES customers(customer_id), order_date TEXT, status TEXT, total_amount REAL);
+INSERT INTO orders VALUES
+(1001,1,'2025-01-05','Delivered',269.00),(1002,2,'2025-01-09','Delivered',1499.00),
+(1003,1,'2025-01-20','Delivered',2298.00),(1004,4,'2025-02-02','Cancelled',498.00),
+(1005,3,'2025-02-14','Delivered',932.00),(1006,6,'2025-02-25','Shipped',1499.00),
+(1007,8,'2025-03-03','Delivered',550.00),(1008,4,'2025-03-15','Delivered',2998.00),
+(1009,7,'2025-03-28','Returned',399.00),(1010,10,'2025-04-04','Delivered',797.00),
+(1011,2,'2025-04-18','Delivered',450.00),(1012,5,'2025-05-06','Shipped',389.00),
+(1013,8,'2025-05-21','Delivered',1899.00),(1014,1,'2025-06-02','Placed',1525.00),
+(1015,99,'2025-06-10','Delivered',199.00),(1016,9,'2025-06-22','Delivered',1997.00),
+(1017,6,'2025-07-01','Placed',350.00),(1018,3,'2025-07-15','Delivered',798.00),
+(1019,10,'2025-07-30','Cancelled',35.00),(1020,4,'2025-08-09','Delivered',873.00);
+CREATE TABLE order_items(item_id INTEGER PRIMARY KEY, order_id INTEGER REFERENCES orders(order_id), product_id INTEGER REFERENCES products(product_id), quantity INTEGER, unit_price REAL);
+INSERT INTO order_items VALUES
+(1,1001,101,2,35),(2,1001,105,1,199),(3,1002,107,1,1499),(4,1003,104,1,1899),(5,1003,103,1,399),
+(6,1004,102,2,249),(7,1005,109,3,299),(8,1005,101,1,35),(9,1006,110,1,1250),(10,1006,102,1,249),
+(11,1007,106,2,275),(12,1008,107,2,1499),(13,1009,103,1,399),(14,1010,105,2,199),(15,1010,109,1,299),
+(16,1011,108,1,450),(17,1012,101,4,35),(18,1012,102,1,249),(19,1013,104,1,1899),(20,1014,110,1,1250),
+(21,1014,106,1,275),(22,1015,105,1,199),(23,1016,107,1,1499),(24,1016,102,2,249),(25,1018,103,2,399),
+(26,1019,101,1,35),(27,1020,109,2,299),(28,1020,106,1,275),(29,1003,103,1,399),(30,9999,101,1,35);
+CREATE TABLE payments(payment_id INTEGER PRIMARY KEY, order_id INTEGER REFERENCES orders(order_id), amount REAL, method TEXT, status TEXT, paid_at TEXT);
+INSERT INTO payments VALUES
+(1,1001,269.00,'UPI','Success','2025-01-05'),(2,1002,1499.00,'Card','Success','2025-01-09'),
+(3,1003,2298.00,'Card','Success','2025-01-20'),(4,1004,498.00,'UPI','Refunded','2025-02-03'),
+(5,1005,932.00,'COD','Success','2025-02-16'),(6,1006,1499.00,'UPI','Success','2025-02-25'),
+(7,1008,2998.00,'Card','Success','2025-03-15'),(8,1009,399.00,'UPI','Refunded','2025-04-01'),
+(9,1010,797.00,'Card','Success','2025-04-04'),(10,1011,450.00,'UPI','Success','2025-04-18'),
+(11,1012,389.00,'COD','Pending',NULL),(12,1013,1899.00,'Card','Failed','2025-05-21'),
+(13,1013,1899.00,'Card','Success','2025-05-21'),(14,1015,199.00,'UPI','Success','2025-06-10'),
+(15,1016,1997.00,'UPI','Success','2025-06-22'),(16,1018,789.00,'UPI','Success','2025-07-15'),
+(17,1020,873.00,'Wallet','Success','2025-08-09');
+CREATE TABLE defects(defect_id INTEGER PRIMARY KEY, title TEXT, module TEXT, severity TEXT, priority TEXT, status TEXT, reported_by TEXT, assigned_to TEXT, created_on TEXT, closed_on TEXT);
+INSERT INTO defects VALUES
+(1,'Checkout fails with expired coupon','Checkout','Critical','P1','Closed','Neer','Ravi','2025-01-10','2025-01-12'),
+(2,'Loyalty points not credited','Loyalty','High','P1','Closed','Neer','Sana','2025-01-14','2025-01-20'),
+(3,'Typo on order summary page','Checkout','Low','P4','Closed','Asha','Ravi','2025-01-15','2025-01-16'),
+(4,'Prescription upload times out','Pharmacy','Critical','P1','Reopened','Neer','Kiran','2025-02-01',NULL),
+(5,'Wrong tax on devices','Checkout','High','P2','Open','Asha',NULL,'2025-02-11',NULL),
+(6,'Password reset email delayed','Account','Medium','P3','In Progress','Neer','Sana','2025-02-19',NULL),
+(7,'Refill reminder SMS sent twice','Pharmacy','Medium','P2','Closed','Asha','Kiran','2025-03-02','2025-03-09'),
+(8,'Cart total off by one rupee','Checkout','High','P2','Closed','Neer','Ravi','2025-03-05','2025-03-07'),
+(9,'Profile photo not saving on iOS','Account','Low','P3','Open','Asha','Sana','2025-03-22',NULL),
+(10,'Tier badge shows Silver for Gold users','Loyalty','Medium','P3','Closed','Neer','Sana','2025-04-03','2025-04-15'),
+(11,'IVR call drops after menu 2','Pharmacy','High','P2','In Progress','Asha','Kiran','2025-04-17',NULL),
+(12,'Duplicate orders on double click','Checkout','Critical','P1','Closed','Neer','Ravi','2025-05-06','2025-05-07'),
+(13,'Search ignores brand names','Catalog','Medium','P3','Open','Asha',NULL,'2025-05-28',NULL),
+(14,'Out-of-stock items can be added','Catalog','High','P2','Closed','Neer','Ravi','2025-06-12','2025-06-20'),
+(15,'Session expires during payment','Checkout','Critical','P1','Open','Neer','Ravi','2025-07-01',NULL),
+(16,'Coupon field accepts emoji','Checkout','Low','P4','Closed','Asha','Ravi','2025-07-08',NULL);
+CREATE TABLE employees(emp_id INTEGER PRIMARY KEY, full_name TEXT, dept TEXT, salary INTEGER, manager_id INTEGER, hire_date TEXT);
+INSERT INTO employees VALUES
+(1,'Lakshmi Rao','Leadership',400000,NULL,'2015-04-01'),(2,'Ravi Kumar','Development',210000,1,'2017-06-12'),
+(3,'Sana Sheikh','Development',185000,2,'2019-01-07'),(4,'Kiran Patil','Development',185000,2,'2020-03-16'),
+(5,'Asha Thomas','QA',150000,7,'2021-07-01'),(6,'Farhan Ali','QA',120000,7,'2022-02-14'),
+(7,'Deepa Krishnan','QA',230000,1,'2016-09-05'),(8,'Manoj Pillai','Development',215000,2,'2018-11-20'),
+(9,'Nisha Reddy','Support',90000,1,'2022-08-08'),(10,'Tarun Bose','Support',90000,9,'2023-05-02'),
+(11,'Gauri Shetty','QA',150000,7,'2023-10-30');
+`;
+
+/* ---------- derived indexes and state ---------- */
+const WEEKS = PLAN.flatMap(p=>p.weeks);
+const CASES = WEEKS.flatMap(w=>w.cases.map(c=>({id:c[0],text:c[1],tag:c[2],mins:c[3],week:w})));
+const LESSONS = CASES.filter(c=>c.mins);
+const BY_ID = Object.fromEntries(CASES.map(c=>[c.id,c]));
+const OFFLINE = !!window.OFFLINE_LESSONS;
+const HAS_RUNTIME = !!(window.claude && window.claude.use);
+const LS_DONE = "qa-plan-done-v2", LS_ACT = "qa-plan-activity-v1";
+let done = {}, activity = {};
+
+function esc(s){return String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]))}
+function weekNow(){const d=Math.floor((Date.now()-START.getTime())/86400000); return d<0?0:Math.min(12,Math.floor(d/7)+1)}
+function wkLabel(n){return "W"+String(n).padStart(2,"0")}
+function dayKey(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0")}
+function weekStatus(w){ const k=w.cases.filter(c=>done[c[0]]).length; if(k===w.cases.length) return "passed"; if(k>0||w.n===weekNow()) return "running"; return "queued"; }
+
+/* ---------- plan view ---------- */
+function buildPlan(){
+  const cur = weekNow();
+  document.getElementById("pipeline").innerHTML = PLAN.map((p,i)=>`
+    <a class="stage" href="#ph-${i}" data-stage="${i}">
+      <div class="top"><span class="dot"></span><span class="pill" data-stage-pill="${i}">QUEUED</span></div>
+      <h3>${esc(p.short)}</h3>
+      <div class="sub">${p.weeks.length===1?wkLabel(p.weeks[0].n):wkLabel(p.weeks[0].n)+"–"+wkLabel(p.weeks[p.weeks.length-1].n)} · <span data-stage-pct="${i}">0%</span></div>
+      <div class="bar"><i data-stage-bar="${i}"></i></div>
+    </a>`).join("");
+  document.getElementById("plan").innerHTML = PLAN.map((p,i)=>`
+    <section class="phase" id="ph-${i}">
+      <h2>${esc(p.phase)} <small>${p.weeks.length} suite${p.weeks.length>1?"s":""}</small></h2>
+      <p>${esc(p.note)}</p>
+      ${p.weeks.map(w=>`
+        <details class="suite${w.n===cur?" current":""}" id="s-${w.id}" ${w.n===cur?"open":""}>
+          <summary>
+            <span class="wk">${wkLabel(w.n)}</span>
+            <span class="st"><h3>${esc(w.title)}</h3><div>${esc(w.dates)}${w.n===cur?" · this week":""}${w.file?" · lessons ready":""}</div></span>
+            <span class="right"><span class="count" data-count="${w.id}"></span><span class="pill" data-pill="${w.id}"></span><span class="chev" aria-hidden="true"></span></span>
+            <div class="bar"><i data-bar="${w.id}"></i></div>
+          </summary>
+          <div class="body">
+            <p class="goal">${esc(w.goal)}</p>
+            <ul class="cases">
+              ${w.cases.map(c=>`<li class="case" data-case="${c[0]}">
+                <input type="checkbox" id="c-${c[0]}" data-id="${c[0]}" aria-label="Mark done: ${esc(c[1])}">
+                ${c[3]?`<span><a class="lesson-link" href="#${c[0]}">${esc(c[1])}</a><span class="mins">${c[3]} min</span></span>`:`<label for="c-${c[0]}">${esc(c[1])}</label>`}
+                <span class="tag">${esc(c[2])}</span></li>`).join("")}
+            </ul>
+            ${w.res.length?`<div class="res">Resources: ${w.res.map(r=>`<a href="${r[1]}" target="_blank" rel="noopener">${esc(r[0])}</a>`).join("")}</div>`:""}
+            ${!w.file && w.n>=3?`<div class="pending">Full lesson notes for this week are added before ${esc(w.dates.split("–")[0].trim())}. The topics above are the syllabus.</div>`:""}
+            <div class="deliver"><b>Exit criteria</b>${esc(w.deliver)}</div>
+            <div class="suite-foot"><button type="button" class="linkbtn" data-reset-week="${w.id}" hidden>Reset this week</button></div>
+          </div>
+        </details>`).join("")}
+    </section>`).join("");
+  const cw=WEEKS.find(w=>w.n===cur);
+  document.getElementById("curWk").textContent = wkLabel(cur)+" · "+cw.title;
+}
+
+function weekIdsWithExercises(w){
+  const ids=w.cases.map(c=>c[0]);
+  const pre=w.id+"-";
+  Object.keys(done).forEach(k=>{ if(k.startsWith(pre) && !ids.includes(k)) ids.push(k); });
+  return ids;
+}
+
+function streak(){
+  let n=0; const d=new Date();
+  if(!activity[dayKey(d)]) d.setDate(d.getDate()-1);
+  while(activity[dayKey(d)]){ n++; d.setDate(d.getDate()-1); }
+  return n;
+}
+
+function paintHeat(){
+  const today=new Date(); today.setHours(0,0,0,0);
+  const dow=(today.getDay()+6)%7;                     // Monday = 0
+  const start=new Date(today); start.setDate(start.getDate()-dow-7*11);
+  let html="";
+  for(let i=0;i<84;i++){
+    const d=new Date(start); d.setDate(start.getDate()+i);
+    const k=dayKey(d), n=activity[k]||0;
+    const lvl = d>today ? "future" : n===0 ? "" : n===1 ? "l1" : n<=3 ? "l2" : n<=6 ? "l3" : "l4";
+    const label=d.toLocaleDateString(undefined,{day:"numeric",month:"short"})+": "+n+" tick"+(n===1?"":"s");
+    html+=`<span class="${lvl}${k===dayKey(today)?" today":""}" title="${label}"></span>`;
+  }
+  document.getElementById("heat").innerHTML=html;
+  const days=Object.keys(activity).filter(k=>activity[k]>0).sort();
+  document.getElementById("lastActive").textContent = days.length
+    ? "Last studied "+new Date(days[days.length-1]+"T00:00").toLocaleDateString(undefined,{weekday:"short",day:"numeric",month:"short"})+" · "+days.length+" active day"+(days.length===1?"":"s")
+    : "Tick a lesson or exercise and your activity shows here.";
+}
+
+function paint(){
+  let n=0;
+  CASES.forEach(c=>{
+    const on=!!done[c.id]; if(on) n++;
+    const box=document.getElementById("c-"+c.id); if(box) box.checked=on;
+    const li=document.querySelector(`[data-case="${c.id}"]`); if(li) li.classList.toggle("done",on);
+  });
+  WEEKS.forEach(w=>{
+    const k=w.cases.filter(c=>done[c[0]]).length, t=w.cases.length, st=weekStatus(w);
+    const el=document.querySelector(`[data-count="${w.id}"]`); if(el) el.textContent=k+"/"+t;
+    const pill=document.querySelector(`[data-pill="${w.id}"]`); if(pill){ pill.textContent=st.toUpperCase(); pill.className="pill "+st; }
+    const bar=document.querySelector(`[data-bar="${w.id}"]`); if(bar) bar.style.width=(100*k/t)+"%";
+    const s=document.getElementById("s-"+w.id); if(s){ s.classList.remove("passed","running","queued"); s.classList.add(st); }
+    const rb=document.querySelector(`[data-reset-week="${w.id}"]`); if(rb) rb.hidden = !weekIdsWithExercises(w).some(id=>done[id]);
+  });
+  let passedStages=0;
+  PLAN.forEach((p,i)=>{
+    const ids=p.weeks.flatMap(w=>w.cases.map(c=>c[0])); const k=ids.filter(id=>done[id]).length;
+    const sts=p.weeks.map(weekStatus);
+    const st = sts.every(s=>s==="passed") ? "passed" : sts.some(s=>s!=="queued") ? "running" : "queued";
+    if(st==="passed") passedStages++;
+    const a=document.querySelector(`[data-stage="${i}"]`); if(a){ a.classList.remove("passed","running","queued"); a.classList.add(st); }
+    document.querySelector(`[data-stage-pill="${i}"]`).textContent=st.toUpperCase();
+    document.querySelector(`[data-stage-pct="${i}"]`).textContent=Math.round(100*k/ids.length)+"%";
+    document.querySelector(`[data-stage-bar="${i}"]`).style.width=(100*k/ids.length)+"%";
+  });
+  document.getElementById("pipeSummary").textContent=passedStages+" of "+PLAN.length+" stages passed";
+  const pct=Math.round(n*100/CASES.length);
+  document.getElementById("covPct").textContent=pct+"%";
+  document.getElementById("gaugeFill").style.strokeDashoffset = 439.82*(1-n/CASES.length);
+  document.getElementById("gauge").setAttribute("aria-label","Coverage "+pct+"%, "+n+" of "+CASES.length+" cases passed");
+  const ld=LESSONS.filter(l=>done[l.id]).length;
+  document.getElementById("tLessons").innerHTML=ld+"<small> / "+LESSONS.length+"</small>";
+  document.getElementById("tCases").innerHTML=n+"<small> / "+CASES.length+"</small>";
+  document.getElementById("tEx").textContent=Object.keys(done).filter(k=>/-e\d+$/.test(k)).length;
+  const s=streak(); document.getElementById("tStreak").innerHTML=s+"<small> day"+(s===1?"":"s")+"</small>";
+  const next = LESSONS.find(l=>!done[l.id]) || CASES.find(c=>!done[c.id]);
+  const nb=document.getElementById("nextBtn");
+  if(next){
+    document.getElementById("nextUp").innerHTML = `<span class="eyebrow">${wkLabel(next.week.n)} · ${esc(next.week.title)}</span><br>`+(next.mins?`<a href="#${next.id}">${esc(next.text)}</a>`:esc(next.text));
+    nb.href = next.mins ? "#"+next.id : "#s-"+next.week.id; nb.textContent = next.mins ? "Start lesson" : "Open week";
+  } else { document.getElementById("nextUp").textContent="Every case has passed. Well done."; nb.href="#plan"; nb.textContent="Review"; }
+  paintHeat();
+  document.querySelectorAll("[data-ex]").forEach(b=>{const on=!!done[b.dataset.ex]; b.checked=on; b.closest(".ex").classList.toggle("solved",on)});
+  const rd=document.getElementById("rDone"), lid=rd.dataset.lesson;
+  if(lid){ const on=!!done[lid]; rd.textContent= on?"Completed · undo":"Mark lesson complete"; rd.className="btn "+(on?"done":"primary"); }
+}
+
+function toggle(id,on){
+  if(on){ if(!done[id]){ const k=dayKey(new Date()); activity[k]=(activity[k]||0)+1; } done[id]=true; }
+  else delete done[id];
+  paint(); queueSave();
+}
+document.addEventListener("change",e=>{
+  const t=e.target; if(!t||!t.dataset) return;
+  if(t.dataset.id) toggle(t.dataset.id,t.checked);
+  else if(t.dataset.ex) toggle(t.dataset.ex,t.checked);
+});
+
+/* ---------- modal, toast, reset ---------- */
+let lastFocus=null;
+function ask({title,text,buttons}){
+  return new Promise(resolve=>{
+    const m=document.getElementById("modal");
+    document.getElementById("modalTitle").textContent=title;
+    document.getElementById("modalText").textContent=text;
+    const row=document.getElementById("modalBtns"); row.innerHTML="";
+    const close=v=>{ m.hidden=true; document.removeEventListener("keydown",onKey); if(lastFocus) lastFocus.focus(); resolve(v); };
+    const onKey=e=>{ if(e.key==="Escape") close(null); };
+    buttons.forEach(b=>{ const el=document.createElement("button"); el.type="button"; el.className="btn "+(b.cls||""); el.textContent=b.label; el.onclick=()=>close(b.value); row.append(el); });
+    lastFocus=document.activeElement; m.hidden=false; document.addEventListener("keydown",onKey);
+    m.onclick=e=>{ if(e.target===m) close(null); };
+    row.lastElementChild.focus();
+  });
+}
+let toastTimer=null, undoFn=null;
+function toast(msg, undo){
+  const t=document.getElementById("toast"); document.getElementById("toastMsg").textContent=msg;
+  undoFn=undo||null; document.getElementById("toastUndo").hidden=!undo; t.hidden=false;
+  clearTimeout(toastTimer); toastTimer=setTimeout(()=>{t.hidden=true; undoFn=null;},10000);
+}
+document.getElementById("toastUndo").addEventListener("click",()=>{ if(undoFn){ undoFn(); undoFn=null; } document.getElementById("toast").hidden=true; });
+
+function snapshot(){ return {done:{...done}, activity:{...activity}}; }
+function restore(s){ done={...s.done}; activity={...s.activity}; paint(); queueSave(); }
+
+document.getElementById("resetAllBtn").addEventListener("click", async ()=>{
+  const n=Object.keys(done).length;
+  if(!n){ backupMsg("Nothing to reset yet."); return; }
+  const v = await ask({title:"Reset all progress?",
+    text:`This clears all ${n} ticks (lessons, exercises and tasks) and your activity history. You can undo for 10 seconds afterwards, or export a backup first.`,
+    buttons:[{label:"Cancel",value:null},{label:"Export backup first",value:"export"},{label:"Reset everything",value:"reset",cls:"danger solid"}]});
+  if(v==="export"){ await exportProgress(); return; }
+  if(v!=="reset") return;
+  const snap=snapshot(); done={}; activity={}; paint(); queueSave();
+  toast("All progress reset.", ()=>{ restore(snap); toast("Progress restored."); });
+});
+document.addEventListener("click", async e=>{
+  const b=e.target.closest("[data-reset-week]"); if(!b) return;
+  const w=WEEKS.find(x=>x.id===b.dataset.resetWeek);
+  const ids=weekIdsWithExercises(w).filter(id=>done[id]);
+  const v = await ask({title:`Reset ${wkLabel(w.n)}: ${w.title}?`,
+    text:`This unticks ${ids.length} item${ids.length===1?"":"s"} in this week, including its exercises. Other weeks are not touched.`,
+    buttons:[{label:"Cancel",value:null},{label:"Reset week",value:"reset",cls:"danger solid"}]});
+  if(v!=="reset") return;
+  const snap=snapshot(); ids.forEach(id=>delete done[id]); paint(); queueSave();
+  toast(wkLabel(w.n)+" reset.", ()=>{ restore(snap); toast("Week restored."); });
+});
+
+/* ---------- SQL engine ---------- */
+let dbP=null, sqlP=null;
+function loadScript(src){return new Promise((res,rej)=>{const s=document.createElement("script");s.src=src;s.onload=res;s.onerror=()=>rej(new Error("Could not load the SQL engine. Check your connection and reload."));document.head.appendChild(s);})}
+function getDb(){
+  if(!sqlP) sqlP = (window.initSqlJs?Promise.resolve():loadScript(SQLJS_URL)).then(()=>window.initSqlJs());
+  if(!dbP) dbP = sqlP.then(SQL=>{const db=new SQL.Database(); db.exec(SEED); return db;});
+  return dbP;
+}
+function resetDb(){ dbP=null; return getDb().then(()=>{ const n=document.getElementById("dbNote"); if(n) n.textContent="Practice data reset."; }); }
+document.addEventListener("click",e=>{ if(e.target.closest("[data-reset]")) resetDb(); });
+
+function renderResult(out, res, changed){
+  if(!res.length){ out.innerHTML=`<div class="msg">Done. ${changed} row(s) changed.</div>`; return; }
+  const r=res[res.length-1], max=200;
+  const head="<tr>"+r.columns.map(c=>`<th>${esc(c)}</th>`).join("")+"</tr>";
+  const rows=r.values.slice(0,max).map(v=>"<tr>"+v.map(x=>x===null?`<td class="null">NULL</td>`:`<td>${esc(x)}</td>`).join("")+"</tr>").join("");
+  out.innerHTML=`<table>${head}${rows}</table><div class="msg">${r.values.length} row${r.values.length===1?"":"s"}${r.values.length>max?" (showing first "+max+")":""}${res.length>1?" · showing the last of "+res.length+" result sets":""}</div>`;
+}
+function makeEditor(sql, opts={}){
+  const wrap=document.createElement("div"); wrap.className="editor";
+  const ta=document.createElement("textarea"); ta.spellcheck=false; ta.value=sql; ta.setAttribute("aria-label","SQL editor");
+  if(opts.placeholder) ta.placeholder=opts.placeholder;
+  const fit=()=>{ta.style.height="auto"; ta.style.height=Math.max(opts.min||52,ta.scrollHeight+2)+"px";};
+  const bar=document.createElement("div"); bar.className="bar2";
+  const run=document.createElement("button"); run.type="button"; run.className="btn primary"; run.textContent="Run";
+  const reset=document.createElement("button"); reset.type="button"; reset.className="btn"; reset.textContent=sql?"Restore":"Clear";
+  const hint=document.createElement("span"); hint.className="hint"; hint.textContent="Ctrl+Enter to run";
+  const out=document.createElement("div"); out.className="out";
+  bar.append(run,reset,hint); wrap.append(ta,bar,out);
+  const go=()=>{ const q=ta.value.trim(); if(!q){out.innerHTML=`<div class="msg">Write a query first.</div>`;return;}
+    out.innerHTML=`<div class="msg">Running…</div>`;
+    getDb().then(db=>{ try{ const res=db.exec(q); renderResult(out,res,db.getRowsModified()); }catch(err){ out.innerHTML=`<div class="error">${esc(err.message)}</div>`; } })
+           .catch(err=>{ out.innerHTML=`<div class="error">${esc(err.message)}</div>`; });
+  };
+  run.onclick=go; reset.onclick=()=>{ta.value=sql; fit(); out.innerHTML="";};
+  ta.addEventListener("keydown",e=>{ if((e.ctrlKey||e.metaKey)&&e.key==="Enter"){e.preventDefault();go();}
+    if(e.key==="Tab"&&!e.shiftKey){e.preventDefault(); const s=ta.selectionStart; ta.setRangeText("  ",s,ta.selectionEnd,"end");} });
+  ta.addEventListener("input",fit); requestAnimationFrame(fit);
+  return wrap;
+}
+function copyText(text, btn, pre, okLabel){
+  const label=btn.textContent;
+  const done_=msg=>{ btn.textContent=msg; setTimeout(()=>btn.textContent=label,1800); };
+  const fallback=()=>{
+    if(pre){ const r=document.createRange(); r.selectNodeContents(pre); const s=getSelection(); s.removeAllRanges(); s.addRange(r); done_("Selected: press Ctrl+C"); }
+    else { const ta=document.createElement("textarea"); ta.value=text; ta.style.cssText="width:100%;height:160px;margin-top:8px;font-family:var(--mono);font-size:12px"; ta.readOnly=true; btn.after(ta); ta.select(); done_("Selected below: press Ctrl+C"); }
+  };
+  try{ navigator.clipboard.writeText(text).then(()=>done_(okLabel||"Copied"),fallback); }catch(e){ fallback(); }
+}
+function enhance(root){
+  root.querySelectorAll("pre.run").forEach(pre=>{ pre.replaceWith(makeEditor(pre.textContent.replace(/^\n+|\s+$/g,""))); });
+  root.querySelectorAll(".ex").forEach((ex,i)=>{
+    const id=ex.dataset.id;
+    const head=document.createElement("div"); head.className="ex-head";
+    head.innerHTML=`<span class="n">EXERCISE ${i+1}</span><label><input type="checkbox" data-ex="${esc(id)}"> Solved</label>`;
+    ex.prepend(head);
+    if(ex.closest("[data-kind='code']")) return;
+    const ans=ex.querySelector("details.ans");
+    const ed=makeEditor("",{placeholder:"Write your query here, then Run"});
+    if(ans) ex.insertBefore(ed,ans); else ex.append(ed);
+  });
+  root.querySelectorAll("pre.code").forEach(pre=>{
+    if(pre.closest(".codewrap")) return;
+    const w=document.createElement("div"); w.className="codewrap";
+    const b=document.createElement("button"); b.type="button"; b.className="copybtn"; b.textContent="Copy";
+    b.addEventListener("click",()=>copyText(pre.textContent,b,pre));
+    pre.replaceWith(w); w.append(pre,b);
+  });
+  root.querySelectorAll("[data-copy-seed]").forEach(b=>{
+    b.addEventListener("click",()=>copyText(SEED.trim()+"\n",b,null,"Copied: paste it into seed.sql"));
+  });
+  root.querySelectorAll("table.ref").forEach(t=>{ if(!t.parentElement.classList.contains("tablewrap")){const w=document.createElement("div");w.className="tablewrap";t.replaceWith(w);w.append(t);} });
+}
+
+/* ---------- lessons ---------- */
+const weekCache={};
+function loadWeek(file){
+  const src = ()=> OFFLINE && window.OFFLINE_LESSONS[file]!==undefined
+    ? Promise.resolve(window.OFFLINE_LESSONS[file])
+    : fetch(file).then(r=>{ if(!r.ok) throw new Error("HTTP "+r.status); return r.text(); });
+  if(!weekCache[file]) weekCache[file]=src()
+    .then(t=>{ const doc=new DOMParser().parseFromString(t,"text/html"); const m={}; doc.querySelectorAll("section.lesson").forEach(s=>m[s.id]=s.innerHTML); return m; })
+    .catch(e=>{ delete weekCache[file]; throw e; });
+  return weekCache[file];
+}
+function showLesson(id){
+  const c=BY_ID[id], i=LESSONS.indexOf(c);
+  setView("readerView");
+  document.getElementById("rCrumb").textContent=wkLabel(c.week.n)+" · "+c.week.title;
+  document.getElementById("rMeta").textContent="Lesson "+(c.week.cases.findIndex(x=>x[0]===id)+1)+" · about "+c.mins+" min";
+  document.getElementById("rTitle").textContent=c.text;
+  const box=document.getElementById("rContent"); box.innerHTML=`<div class="loading">Loading lesson…</div>`;
+  const prev=LESSONS[i-1], next=LESSONS[i+1];
+  const rp=document.getElementById("rPrev"), rn=document.getElementById("rNext");
+  rp.href=prev?"#"+prev.id:"#plan"; rp.textContent=prev?"← "+prev.text:"← Plan";
+  rn.href=next?"#"+next.id:"#plan"; rn.textContent=next?next.text+" →":"Back to plan →";
+  document.getElementById("rDone").dataset.lesson=id;
+  const isSql = c.week.n<=2;
+  document.getElementById("dbPanel").hidden=!isSql;
+  document.getElementById("sqlHowPanel").hidden=!isSql;
+  document.getElementById("codePanel").hidden=isSql;
+  window.scrollTo(0,0);
+  loadWeek(c.week.file).then(m=>{
+    if(location.hash.slice(1)!==id) return;
+    if(!m[id]){ box.innerHTML=`<div class="loading">This lesson isn't published yet.</div>`; return; }
+    box.innerHTML=m[id]; box.dataset.kind = isSql ? "sql" : "code"; enhance(box); paint();
+    if(box.querySelector(".editor")) getDb().catch(()=>{});
+  }).catch(()=>{ box.innerHTML=`<div class="loading">The lesson couldn't load. Check your connection and reload the page.</div>`; });
+  paint();
+}
+document.getElementById("rDone").addEventListener("click",e=>{ const id=e.currentTarget.dataset.lesson; if(id) toggle(id,!done[id]); });
+
+let playBuilt=false;
+function showPlayground(){
+  setView("playView");
+  if(!playBuilt){ playBuilt=true; document.getElementById("playEditor").append(makeEditor("SELECT * FROM orders LIMIT 10;",{min:160})); }
+  window.scrollTo(0,0); getDb().catch(()=>{});
+}
+function setView(v){ ["planView","readerView","playView"].forEach(x=>document.getElementById(x).hidden = x!==v); }
+function route(){
+  const h=location.hash.slice(1);
+  if(BY_ID[h] && BY_ID[h].mins) showLesson(h);
+  else if(h==="playground") showPlayground();
+  else {
+    const wasHidden=document.getElementById("planView").hidden;
+    setView("planView");
+    const target = h && document.getElementById(h);
+    if(target){ if(target.tagName==="DETAILS") target.open=true; if(wasHidden) target.scrollIntoView(); }
+  }
+}
+window.addEventListener("hashchange",route);
+
+const schemaHtml = SCHEMA.map(s=>`<div><b>${s[0]}</b><br><span>${esc(s[1])}</span></div>`).join("");
+document.getElementById("schemaBox").innerHTML=schemaHtml;
+document.getElementById("schemaBox2").innerHTML=schemaHtml;
+
+/* ---------- saving ---------- */
+let saveFn=null, writing=false, dirty=false, saveTimer=null;
+function setSync(t){document.querySelectorAll(".sync").forEach(n=>n.textContent=t)}
+function saveLocal(){ try{ localStorage.setItem(LS_DONE,JSON.stringify(done)); localStorage.setItem(LS_ACT,JSON.stringify(activity)); }catch(e){} }
+function queueSave(){
+  saveLocal();
+  if(!saveFn) return;
+  clearTimeout(saveTimer); saveTimer=setTimeout(flush,600);
+}
+async function flush(){
+  if(writing){dirty=true;return}
+  writing=true; setSync("Saving…");
+  try{ await saveFn({done:{...done},activity:{...activity},updatedAt:new Date().toISOString()}); setSync("Saved to your account"); }
+  catch(e){ setSync(e&&e.code==="invalid_argument"?"View only: progress isn't saved for you":"Couldn't save. Your ticks are kept in this browser for now."); }
+  writing=false; if(dirty){dirty=false;flush();}
+}
+
+/* ---------- backup: export / import ---------- */
+function backupMsg(t){ document.getElementById("backupMsg").textContent=t; }
+async function exportProgress(){
+  const data = JSON.stringify({app:"qa-comeback-plan", version:2, exportedAt:new Date().toISOString(), done, activity}, null, 2);
+  const filename = "qa-progress-"+dayKey(new Date())+".json";
+  if(!HAS_RUNTIME){
+    const a=document.createElement("a"); a.href=URL.createObjectURL(new Blob([data],{type:"application/json"})); a.download=filename;
+    document.body.append(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+    backupMsg("Saved "+filename+" to your Downloads folder."); return;
+  }
+  let dl=null;
+  try{ dl = await window.claude.use("downloads"); }catch(e){ dl=null; }
+  if(dl){
+    try{ await dl.save({filename, data}); backupMsg("Saved "+filename+"."); return; }
+    catch(e){ if(e&&e.code==="declined"){ backupMsg("Export cancelled."); return; } }
+  }
+  copyText(data, document.getElementById("exportBtn"), null, "Copied");
+  backupMsg("Saving a file isn't available here, so the backup was copied. Paste it into a file named "+filename+".");
+}
+document.getElementById("exportBtn").addEventListener("click", exportProgress);
+document.getElementById("importFile").addEventListener("change", e=>{
+  const f=e.target.files&&e.target.files[0]; if(!f) return;
+  const reader=new FileReader();
+  reader.onload=()=>{
+    try{
+      const j=JSON.parse(reader.result);
+      if(!j||j.app!=="qa-comeback-plan"||typeof j.done!=="object") throw new Error("not a backup");
+      const ids=new Set(CASES.map(c=>c.id)); let added=0;
+      Object.keys(j.done).forEach(k=>{ if(j.done[k]===true && (ids.has(k)||/^w\d\d-l\d+-e\d+$/.test(k)) && !done[k]){ done[k]=true; added++; } });
+      if(j.activity && typeof j.activity==="object") Object.keys(j.activity).forEach(k=>{ const v=+j.activity[k]; if(/^\d{4}-\d\d-\d\d$/.test(k) && v>0) activity[k]=Math.max(activity[k]||0, v); });
+      paint(); queueSave();
+      backupMsg("Imported: "+added+" new tick"+(added===1?"":"s")+" added from "+f.name+".");
+    }catch(err){ backupMsg("That file isn't a QA Comeback Plan backup. Choose a file named qa-progress-….json."); }
+    e.target.value="";
+  };
+  reader.readAsText(f);
+});
+document.querySelector("label[for='importFile']").addEventListener("keydown",e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); document.getElementById("importFile").click(); } });
+
+if(OFFLINE) document.getElementById("backupNote").textContent="This offline copy keeps your ticks in this browser. Export a backup regularly, and import it into another copy when you switch.";
+else if(!HAS_RUNTIME) document.getElementById("backupNote").textContent="Your ticks save in this browser. Use the same browser each time, and export a backup now and then (clearing browser data erases them).";
+
+/* ---------- start ---------- */
+buildPlan();
+try{ const ls=JSON.parse(localStorage.getItem(LS_DONE)||"{}"); if(ls&&typeof ls==="object") done=ls; }catch(e){}
+try{ const la=JSON.parse(localStorage.getItem(LS_ACT)||"{}"); if(la&&typeof la==="object") activity=la; }catch(e){}
+paint(); route();
+
+(async()=>{
+  if(!HAS_RUNTIME){ setSync(OFFLINE?"Offline copy · saved in this browser":"Saved in this browser"); return; }
+  let db=null;
+  try{ db = await window.claude.use("db"); }catch(e){ db=null; }
+  if(!db){ setSync("Progress is kept in this browser only"); return; }
+  const ref=db.doc("progress/main");
+  saveFn=d=>ref.set(d);
+  const timer=setTimeout(()=>setSync("Can't reach saved progress yet; showing this browser's copy"),10000);
+  ref.onSnapshot(snap=>{
+    if(!snap.metadata.fromCache) clearTimeout(timer);
+    if(snap.exists){
+      const d=snap.data();
+      if(!snap.metadata.hasPendingWrites && d && d.done && typeof d.done==="object"){
+        done={...d.done}; if(d.activity && typeof d.activity==="object") activity={...d.activity};
+        paint(); saveLocal();
+      }
+      if(!writing) setSync("Saved to your account");
+    } else if(!snap.metadata.fromCache){
+      setSync("Tick a case to start saving");
+      if(Object.keys(done).length) queueSave();
+    }
+  }, err=>{ clearTimeout(timer); setSync("Progress is kept in this browser only"); saveFn=null; });
+})();
+</script>

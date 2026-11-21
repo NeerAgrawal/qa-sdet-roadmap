@@ -1,0 +1,6 @@
+__pycache__/
+*.pyc
+.venv/
+# personal progress backups stay off GitHub
+qa-progress-*.json
+.claude/
