@@ -3,7 +3,10 @@
 A 12-week study plan for moving from Software Quality Engineer to SDET, with full lessons,
 exercises, a live SQL practice database and progress tracking.
 
-**Live site:** https://&lt;your-username&gt;.github.io/qa-sdet-roadmap/
+**Live site:** https://neeragrawal.github.io/qa-sdet-roadmap/
+
+**Offline copy:** download [`QA-Comeback-Plan-offline.html`](https://github.com/NeerAgrawal/qa-sdet-roadmap/raw/main/QA-Comeback-Plan-offline.html)
+and open it in Chrome or Edge. It works with no internet.
 
 | Phase | Weeks | Topics |
 |---|---|---|
@@ -25,6 +28,15 @@ exercises, a live SQL practice database and progress tracking.
 
 Progress is saved in your browser's local storage. Use the same browser each time,
 and export a backup now and then.
+
+## Related projects
+
+Portfolio repos built while following the plan (links added as each one ships):
+
+- `sql-for-qa`: SQL data-quality checks run by pytest (Week 3)
+- `saucedemo-selenium`: Selenium + pytest Page Object framework (Week 4)
+- `qa-automation-framework`: UI + API framework with CI (Week 6)
+- `llm-eval-suite`: evaluation and red-teaming suite for a RAG chatbot (Week 8)
 
 ## Files
 
